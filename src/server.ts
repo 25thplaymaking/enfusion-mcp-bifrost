@@ -25,8 +25,11 @@ import { registerWbLaunch } from "./tools/wb-launch.js";
 import { connectTools } from "./tools/wb-connect.js";
 import { registerWbDiagnose } from "./tools/wb-diagnose.js";
 import { registerWbReload } from "./tools/wb-reload.js";
+import { registerWbCompileStatus } from "./tools/wb-compile-status.js";
 import { registerWbEditorTools } from "./tools/wb-editor.js";
 import { editorActionTools } from "./tools/wb-editor-actions.js";
+import { editorModuleTools } from "./tools/wb-editor-module.js";
+import { scriptCompileTools } from "./tools/wb-script-compile.js";
 import { executeActionTools } from "./tools/wb-execute-action.js";
 import { registerWorkbenchTools } from "./workbench/define-tool.js";
 import { entityTools } from "./tools/wb-entities.js";
@@ -52,6 +55,7 @@ import { registerScenarioCreate } from "./tools/scenario-create.js";
 import { registerAnimationGraph } from "./tools/animation-graph.js";
 import { registerWbKnowledge } from "./tools/wb-knowledge.js";
 import { registerBuildingSetup } from "./tools/building-setup.js";
+import { registerEditorAssets } from "./tools/editor-assets.js";
 import type { Config } from "./config.js";
 
 export function registerTools(server: McpServer, config: Config): void {
@@ -88,7 +92,8 @@ export function registerTools(server: McpServer, config: Config): void {
   // register themselves; see ADR-0007's coverage boundary.
   registerWbLaunch(server, config, wbClient);
   registerWbDiagnose(server, wbClient);
-  registerWbReload(server, wbClient);
+  registerWbReload(server, config, wbClient);
+  registerWbCompileStatus(server, config);
   registerWbEditorTools(server, wbClient);
   // Every covered wb_* tool — one greppable list, one envelope.
   registerWorkbenchTools(server, wbClient, [
@@ -107,6 +112,8 @@ export function registerTools(server: McpServer, config: Config): void {
     ...stateTools,
     ...connectTools,
     ...editorActionTools,
+    ...editorModuleTools,
+    ...scriptCompileTools,
   ]);
   registerScenarioTools(server, wbClient);
   registerScenarioCreate(server, config);
@@ -121,6 +128,7 @@ export function registerTools(server: McpServer, config: Config): void {
   registerAnimationGraph(server, config);
   registerWbKnowledge(server);
   registerBuildingSetup(server, config);
+  registerEditorAssets(server, config);
 
   // MCP Prompts
   registerCreateModPrompt(server, patterns);

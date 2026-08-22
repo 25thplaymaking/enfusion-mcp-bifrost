@@ -86,6 +86,11 @@ export interface WorkbenchCallOptions {
    * Only wb_launch sets this true.
    */
   allowLaunch?: boolean;
+  /**
+   * Return a handler response whose in-band status is `error` instead of throwing.
+   * Use only for optional secondary lookups; primary actions must surface failure.
+   */
+  tolerateErrorStatus?: boolean;
 }
 
 export class WorkbenchError extends Error {
@@ -118,13 +123,17 @@ export function classifyCallFailure(err: WorkbenchError): string {
     case "TIMEOUT":
       return "Port open but no reply — check the bridge. Run `wb_diagnose` for details.";
     case "API_ERROR":
-      if (err.message.includes("Undefined API func")) {
+      if (isUndefinedApiFunction(err.message)) {
         return "Handler scripts not loaded. Run `wb_launch`. Run `wb_diagnose` for details.";
       }
       return err.message;
     default:
       return err.message;
   }
+}
+
+function isUndefinedApiFunction(message: string): boolean {
+  return message.includes("Undefined API func") || message.includes("not existing Net API function");
 }
 
 /** True when the host is a loopback address (localhost / 127.0.0.1 / ::1). */
@@ -171,11 +180,7 @@ export class WorkbenchClient {
     options: WorkbenchCallOptions = {}
   ): Promise<T> {
     try {
-      const result = await this.rawCall<T>(apiFunc, params, options);
-      this._state.connected = true;
-      this._state.lastUpdated = Date.now();
-      this.extractMode(result);
-      return result;
+      return this.finishCall(await this.rawCall<T>(apiFunc, params, options), options);
     } catch (err) {
       if (err instanceof WorkbenchError) {
         if (err.code === "CONNECTION_REFUSED" || err.code === "TIMEOUT" || err.code === "PROTOCOL_ERROR") {
@@ -189,23 +194,27 @@ export class WorkbenchClient {
             // Workbench not running — install handlers, launch, retry
             logger.info(`Workbench not running, auto-launching...`);
             await this.ensureRunning();
-            const result = await this.rawCall<T>(apiFunc, params, options);
-            this._state.connected = true;
-            this._state.lastUpdated = Date.now();
-            this.extractMode(result);
-            return result;
+            return this.finishCall(await this.rawCall<T>(apiFunc, params, options), options);
           }
-          if (err.code === "API_ERROR" && err.message.includes("Undefined API func")) {
+          if (err.code === "API_ERROR" && isUndefinedApiFunction(err.message)) {
             // Workbench is running but our custom handler scripts aren't compiled.
             // This happens when the user opened Workbench manually, or when handlers
             // were cleaned up but Workbench kept running.
             logger.info(`Handler scripts not loaded in Workbench, recovering...`);
             await this.recoverMissingHandlers();
-            const result = await this.rawCall<T>(apiFunc, params, options);
-            this._state.connected = true;
-            this._state.lastUpdated = Date.now();
-            this.extractMode(result);
-            return result;
+            try {
+              return this.finishCall(await this.rawCall<T>(apiFunc, params, options), options);
+            } catch (retryErr) {
+              if (retryErr instanceof WorkbenchError && isUndefinedApiFunction(retryErr.message)) {
+                throw new WorkbenchError(
+                  `Workbench does not expose "${apiFunc}" after reinstalling and recompiling the handler scripts. ` +
+                    "Workbench registers new NET API handler classes when the process starts, so restart the existing " +
+                    "Workbench once, then retry. Existing registered handlers can reload without a restart.",
+                  "API_ERROR"
+                );
+              }
+              throw retryErr;
+            }
           }
         }
         // Attach a fail-fast hint so each tool's catch can render it uniformly.
@@ -213,6 +222,26 @@ export class WorkbenchClient {
       }
       throw err;
     }
+  }
+
+  /** Record a successful round trip and turn handler-level failures into MCP errors. */
+  private finishCall<T>(result: T, options: WorkbenchCallOptions): T {
+    this._state.connected = true;
+    this._state.lastUpdated = Date.now();
+    this.extractMode(result);
+
+    if (!options.tolerateErrorStatus) {
+      const response = result as unknown as Record<string, unknown> | null;
+      if (response && response.status === "error") {
+        const message =
+          typeof response.message === "string" && response.message.trim()
+            ? response.message
+            : "Workbench handler reported an error without a message.";
+        throw new WorkbenchError(message, "API_ERROR");
+      }
+    }
+
+    return result;
   }
 
   /**
@@ -279,6 +308,25 @@ export class WorkbenchClient {
     } catch {
       return false;
     }
+  }
+
+  /** Find every addon that currently contains injected MCP handlers. */
+  listInstalledHandlerMods(): DiagnosticReport["installedMods"] {
+    const installed: DiagnosticReport["installedMods"] = [];
+    if (!this.config?.projectPath || !existsSync(this.config.projectPath)) return installed;
+    try {
+      for (const entry of readdirSync(this.config.projectPath, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name === HANDLER_FOLDER) continue;
+        const modDir = join(this.config.projectPath, entry.name);
+        const handlerDir = join(modDir, "Scripts", "WorkbenchGame", HANDLER_FOLDER);
+        if (!existsSync(handlerDir)) continue;
+        const fileCount = readdirSync(handlerDir).filter((file) => file.endsWith(".c")).length;
+        installed.push({ modDir, handlerDir, fileCount });
+      }
+    } catch {
+      // A read-only diagnostic should return the entries it could inspect.
+    }
+    return installed;
   }
 
   /**
@@ -370,21 +418,7 @@ export class WorkbenchClient {
       fileCount: standaloneFileCount,
     };
 
-    // Scan project path for mods that have handler scripts installed
-    const installedMods: DiagnosticReport["installedMods"] = [];
-    if (this.config?.projectPath && existsSync(this.config.projectPath)) {
-      try {
-        for (const entry of readdirSync(this.config.projectPath, { withFileTypes: true })) {
-          if (!entry.isDirectory()) continue;
-          if (entry.name === HANDLER_FOLDER) continue; // standalone, covered above
-          const handlerDir = join(this.config.projectPath, entry.name, "Scripts", "WorkbenchGame", HANDLER_FOLDER);
-          if (existsSync(handlerDir)) {
-            const fileCount = readdirSync(handlerDir).filter((f) => f.endsWith(".c")).length;
-            installedMods.push({ modDir: join(this.config.projectPath, entry.name), handlerDir, fileCount });
-          }
-        }
-      } catch { /* ignore */ }
-    }
+    const installedMods = this.listInstalledHandlerMods();
 
     // --- Environment detection (facts, looked up not asked) ---
     const env = detectEnvironment();

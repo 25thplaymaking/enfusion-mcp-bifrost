@@ -10,14 +10,14 @@ const resourcesTool = defineWorkbenchTool({
     "Manage Workbench resources. Register new resources, rebuild resource databases, get resource info, or open a resource in its editor.",
   inputSchema: {
     action: z
-      .enum(["register", "rebuild", "getInfo", "open", "browse"])
+      .enum(["register", "rebuild", "getInfo", "open"])
       .describe(
-        "Action: register (add resource to DB), rebuild (regenerate resource DB), getInfo (resource metadata), open (open in editor), browse (list resources by path prefix)"
+        "Action: register (add resource to DB), rebuild (regenerate resource DB), getInfo (resource metadata), open (open in editor)"
       ),
     path: z
       .string()
       .describe(
-        "Resource path or path prefix. Required for all actions. For browse: use a prefix like 'Prefabs/Characters/' to find matching resources."
+        "Resource path. Required for all actions."
       ),
     buildRuntime: z
       .boolean()
@@ -31,9 +31,6 @@ const resourcesTool = defineWorkbenchTool({
       // Use built-in GetResourceInfo handler
       return client.call<Record<string, unknown>>("GetResourceInfo", { path });
     }
-    if (action === "browse") {
-      return client.call<Record<string, unknown>>("EMCP_WB_Resources", { action, path });
-    }
     // register, rebuild, open all use EMCP_WB_Resources
     const params: Record<string, unknown> = { action, path };
     if (buildRuntime !== undefined) params.buildRuntime = buildRuntime;
@@ -41,24 +38,6 @@ const resourcesTool = defineWorkbenchTool({
   },
   formatter: ({ result, input }) => {
     const { action, path } = input;
-
-    if (action === "browse") {
-      const entries = Array.isArray(result.entries) ? result.entries : [];
-      const total = typeof result.entryCount === "number" ? result.entryCount : entries.length;
-
-      if (entries.length === 0) {
-        return { text: `**No resources found** matching \`${path}\`\n\n${result.message || ""}` };
-      }
-      const lines = [`**Resources matching \`${path}\`** (${entries.length} of ${total})\n`];
-      for (const entry of entries) {
-        const e = entry as Record<string, unknown>;
-        lines.push(`- \`${e.path}\` *(${e.type || "?"})*`);
-      }
-      if (total > entries.length) {
-        lines.push(`\n*${total - entries.length} more not shown (cap 200).*`);
-      }
-      return { text: lines.join("\n") };
-    }
 
     if (action === "getInfo") {
       const lines = [`**Resource Info**\n`];

@@ -1,6 +1,7 @@
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
+import { existsSync } from "node:fs";
 import { logger } from "./utils/logger.js";
 import { isWsl, detectWslHostIp } from "./utils/wsl-path.js";
 

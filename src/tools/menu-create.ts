@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { mkdirSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
 import type { Config } from "../config.js";
 import { generateLayoutTree } from "../templates/layout.js";
@@ -255,7 +255,7 @@ export function registerMenuCreate(server: McpServer, config: Config): void {
           // Roll back so a half-written menu never ships.
           for (const p of written) {
             try {
-              if (existsSync(p)) writeFileSync(p, "", "utf-8");
+              if (existsSync(p)) rmSync(p, { force: true });
             } catch {
               /* best effort */
             }

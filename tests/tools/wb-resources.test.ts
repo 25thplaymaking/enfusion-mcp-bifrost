@@ -13,7 +13,6 @@ describe("wb_resources — requireMode + modeAction", () => {
   it("requires edit mode only for register/rebuild", () => {
     expect(t.requireMode!({ action: "register" })).toBe("edit");
     expect(t.requireMode!({ action: "rebuild" })).toBe("edit");
-    expect(t.requireMode!({ action: "browse" })).toBeNull();
     expect(t.requireMode!({ action: "getInfo" })).toBeNull();
     expect(t.requireMode!({ action: "open" })).toBeNull();
   });
@@ -26,29 +25,6 @@ describe("wb_resources — requireMode + modeAction", () => {
 });
 
 describe("wb_resources — formatter", () => {
-  it("renders a browse listing with a more-not-shown note", () => {
-    const { text } = t.formatter({
-      result: {
-        entries: [{ path: "Prefabs/A.et", type: "Prefab" }],
-        entryCount: 3,
-      },
-      input: { action: "browse", path: "Prefabs/" },
-    });
-    expect(text).toContain("**Resources matching `Prefabs/`** (1 of 3)");
-    expect(text).toContain("- `Prefabs/A.et` *(Prefab)*");
-    expect(text).toContain("*2 more not shown (cap 200).*");
-  });
-
-  it("renders an empty browse result without an error flag", () => {
-    const r = t.formatter({
-      result: { entries: [], message: "nothing here" },
-      input: { action: "browse", path: "Missing/" },
-    });
-    expect(r.text).toContain("**No resources found** matching `Missing/`");
-    expect(r.text).toContain("nothing here");
-    expect(r.isError).toBeUndefined();
-  });
-
   it("renders resource info with known and unknown keys", () => {
     const { text } = t.formatter({
       result: {

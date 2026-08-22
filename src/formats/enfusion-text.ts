@@ -537,8 +537,7 @@ function serializeNode(node: EnfusionNode, indent: number): string {
 
   parts.push(`${pad}${header} {`);
 
-  // Properties
-  for (const prop of node.properties) {
+  const pushProperty = (prop: EnfusionProperty): void => {
     if (typeof prop.value === "string") {
       // Emit bare (unquoted) values for numbers, numeric tuples (vectors/colors/anchors),
       // booleans, and bare identifiers (enums like Manual, Runtime, None) — unless the
@@ -558,6 +557,20 @@ function serializeNode(node: EnfusionNode, indent: number): string {
       // Value is a child node
       parts.push(serializeNode(prop.value, indent + 1));
     }
+  };
+
+  // Enfusion layouts have a load-bearing order: Name, then Slot, then widget
+  // properties such as Color/Text/Texture. The generic AST stores Slot as a
+  // child, so the normal properties-before-children order would make valid-
+  // looking layouts whose properties Workbench silently drops.
+  const isWidget = node.type.endsWith("WidgetClass");
+  const slotChild = isWidget ? node.children.find((child) => child.type === "Slot") : undefined;
+  if (slotChild) {
+    for (const prop of node.properties.filter((property) => property.key === "Name")) pushProperty(prop);
+    parts.push(serializeNode(slotChild, indent + 1));
+    for (const prop of node.properties.filter((property) => property.key !== "Name")) pushProperty(prop);
+  } else {
+    for (const prop of node.properties) pushProperty(prop);
   }
 
   // Standalone values (e.g., dependency GUIDs)
@@ -567,6 +580,7 @@ function serializeNode(node: EnfusionNode, indent: number): string {
 
   // Child nodes
   for (const child of node.children) {
+    if (child === slotChild) continue;
     parts.push(serializeNode(child, indent + 1));
   }
 

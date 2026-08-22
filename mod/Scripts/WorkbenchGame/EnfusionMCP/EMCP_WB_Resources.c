@@ -1,7 +1,7 @@
 /**
  * EMCP_WB_Resources.c - Resource operations handler
  *
- * Actions: register, rebuild, open, browse
+ * Actions: register, rebuild, open
  * Uses the ResourceManager Workbench module.
  * Called via NET API TCP protocol: APIFunc = "EMCP_WB_Resources"
  */
@@ -118,18 +118,10 @@ class EMCP_WB_Resources : NetApiHandler
 			else
 				resp.message = "SetOpenedResource returned false for: " + req.path;
 		}
-		else if (req.action == "browse")
-		{
-			// Workbench.SearchResources requires a WorkbenchSearchResourcesCallback subclass
-			// whose exact callback method signature is not publicly documented.
-			// Until the callback pattern is confirmed at runtime, return a helpful error.
-			resp.status = "error";
-			resp.message = "browse action not yet implemented: Workbench.SearchResources requires a WorkbenchSearchResourcesCallback subclass. Use wb_open_resource or project_browse instead.";
-		}
 		else
 		{
 			resp.status = "error";
-			resp.message = "Unknown action: " + req.action + ". Valid: register, rebuild, open, browse";
+			resp.message = "Unknown action: " + req.action + ". Valid: register, rebuild, open";
 		}
 
 		return resp;

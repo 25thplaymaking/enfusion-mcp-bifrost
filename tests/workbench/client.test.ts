@@ -116,6 +116,28 @@ describe("WorkbenchClient", () => {
     expect(result.entities[0].name).toBe("Tree_01");
   });
 
+  it("throws when a handler reports an in-band error", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench(() => ({ status: "error", message: "Entity not found" }));
+    const errorClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+
+    await expect(errorClient.call("EMCP_WB_ModifyEntity")).rejects.toMatchObject({
+      code: "API_ERROR",
+      message: "Entity not found",
+    });
+  });
+
+  it("allows an explicitly optional lookup to tolerate an in-band error", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench(() => ({ status: "error", message: "Optional lookup failed" }));
+    const tolerantClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+
+    const result = await tolerantClient.call<{ status: string }>("OptionalLookup", {}, {
+      tolerateErrorStatus: true,
+    });
+    expect(result.status).toBe("error");
+  });
+
   it("ping returns true when server is running", async () => {
     const ok = await client.ping();
     expect(ok).toBe(true);
@@ -288,6 +310,13 @@ describe("classifyCallFailure", () => {
   it("maps an 'Undefined API func' API_ERROR to a handlers hint", () => {
     const hint = classifyCallFailure(
       new WorkbenchError("Workbench error: Undefined API func 'EMCP_WB_Ping'", "API_ERROR")
+    );
+    expect(hint).toContain("Handler scripts not loaded");
+  });
+
+  it("recognises the alternate Workbench undefined-function wording", () => {
+    const hint = classifyCallFailure(
+      new WorkbenchError("not existing Net API function EMCP_WB_Ping", "API_ERROR")
     );
     expect(hint).toContain("Handler scripts not loaded");
   });

@@ -103,17 +103,41 @@ export function registerWbLaunch(
     "wb_cleanup",
     {
       description:
-        "Remove the temporary EnfusionMCP handler scripts from a mod's directory. " +
-        "Deletes Scripts/WorkbenchGame/EnfusionMCP/ from the mod. " +
+        "Remove temporary EnfusionMCP handler scripts from one mod or every detected addon. " +
+        "Deletes only Scripts/WorkbenchGame/EnfusionMCP/ directories. " +
         "Call this after finishing Workbench work and before the user publishes their mod. " +
         "Safe to call even if scripts were never installed.",
       inputSchema: {
         modDir: z
           .string()
-          .describe("Path to the mod's root directory (the folder containing the .gproj file)."),
+          .optional()
+          .describe("Path to one mod root. Omit only when allInstalled is true."),
+        allInstalled: z
+          .boolean()
+          .default(false)
+          .describe("Remove injected handlers from every addon found under the configured project path."),
       },
     },
-    async ({ modDir }) => {
+    async ({ modDir, allInstalled }) => {
+      if (allInstalled) {
+        const installed = client.listInstalledHandlerMods();
+        const removed = installed.filter((entry) => client.cleanupHandlerScripts(entry.modDir));
+        const detail = removed.length
+          ? removed.map((entry) => `- ${entry.modDir}`).join("\n")
+          : "No injected handler directories were found.";
+        return {
+          content: [{
+            type: "text" as const,
+            text: `**Bulk Cleanup Complete** — removed ${removed.length} handler installation(s).\n\n${detail}${formatConnectionStatus(client)}`,
+          }],
+        };
+      }
+      if (!modDir) {
+        return {
+          content: [{ type: "text" as const, text: "**Error:** Provide modDir or set allInstalled to true." }],
+          isError: true,
+        };
+      }
       // Resolve to absolute path and validate. Normalize a Windows path to WSL
       // form first so the fs checks below resolve correctly. No-op outside WSL.
       const resolvedModDir = resolve(normalizeOsPath(modDir));

@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import type { Config } from "../config.js";
 import {
   RELOAD_CONFIRM_TIMEOUT_MS,
   RELOAD_CONFIRM_POLL_MS,
@@ -7,6 +8,8 @@ import {
 } from "../workbench/client.js";
 import { formatConnectionStatus } from "../workbench/status.js";
 import { sleep, renderError } from "../workbench/tool-helpers.js";
+import { captureCompileLogCursor, readCompileLogSince } from "../workbench/compile-log.js";
+import { formatCompileReport } from "./wb-compile-status.js";
 
 /**
  * wb_reload — reload scripts or plugins in the running Workbench.
@@ -17,12 +20,13 @@ import { sleep, renderError } from "../workbench/tool-helpers.js";
  * handshake was confirmed. That poll loop is the orchestration shape the
  * envelope's "guard → call(s) → format once → footer → catch" does not cover.
  */
-export function registerWbReload(server: McpServer, client: WorkbenchClient): void {
+export function registerWbReload(server: McpServer, config: Config, client: WorkbenchClient): void {
   server.registerTool(
     "wb_reload",
     {
       description:
-        "Reload scripts or plugins in the Workbench. Use after editing .c script files or Workbench plugins to pick up changes without restarting.",
+        "Reload and compile scripts or plugins in the running Workbench, then return structured compile errors from Workbench's script.log. " +
+        "Use after editing .c files; it does not require window focus and never launches another Workbench.",
       inputSchema: {
         target: z
           .enum(["scripts", "plugins", "both"])
@@ -31,6 +35,7 @@ export function registerWbReload(server: McpServer, client: WorkbenchClient): vo
       },
     },
     async ({ target }) => {
+      const logCursor = captureCompileLogCursor(config.workbenchProfile);
       try {
         await client.call<Record<string, unknown>>("EMCP_WB_Reload", { target });
       } catch (e) {
@@ -57,11 +62,14 @@ export function registerWbReload(server: McpServer, client: WorkbenchClient): vo
           /* handlers still recompiling — keep polling */
         }
         if (back) {
+          const compileReport = readCompileLogSince(config.workbenchProfile, logCursor);
           return {
             content: [
               {
                 type: "text" as const,
-                text: `**Reload Complete** — handlers back online.${formatConnectionStatus(client)}`,
+                text:
+                  `**Reload Complete** — handlers back online.\n\n` +
+                  `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
               },
             ],
           };
@@ -72,13 +80,15 @@ export function registerWbReload(server: McpServer, client: WorkbenchClient): vo
       // Budget elapsed — handlers never returned. Almost always a script compile
       // error blocking recompilation. Soft-degrade, don't recover.
       client.markStale();
+      const compileReport = readCompileLogSince(config.workbenchProfile, logCursor);
       return {
         content: [
           {
             type: "text" as const,
             text:
               `**Reload Triggered** — handlers haven't come back online within ${RELOAD_CONFIRM_TIMEOUT_MS / 1000}s. ` +
-              `This is likely a script compile error blocking recompilation. Run \`wb_diagnose\` for details.${formatConnectionStatus(client)}`,
+              `This is likely a script compile error blocking recompilation.\n\n` +
+              `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
           },
         ],
       };

@@ -16,6 +16,20 @@ describe("generateGuid", () => {
 });
 
 describe("enfusion-text parser", () => {
+  it("serializes widget Slot before load-bearing visual properties", () => {
+    const widget = createNode("ImageWidgetClass", {
+      id: "{1111111111111111}",
+      properties: [
+        { key: "Name", value: "Background", quoted: true },
+        { key: "Color", value: "0 0 0 1" },
+      ],
+      children: [createNode("Slot", { id: "{2222222222222222}", properties: [{ key: "Anchor", value: "0 0 1 1" }] })],
+    });
+    const output = serialize(widget);
+    expect(output.indexOf("Name")).toBeLessThan(output.indexOf("Slot"));
+    expect(output.indexOf("Slot")).toBeLessThan(output.indexOf("Color"));
+  });
+
   it("parses minimal .gproj", () => {
     const input = `GameProject {
  ID "TestMod"

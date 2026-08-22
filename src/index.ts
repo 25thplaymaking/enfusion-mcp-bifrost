@@ -13,7 +13,7 @@ const { version } = require("../package.json");
 const config = loadConfig();
 
 const server = new McpServer({
-  name: "enfusion-mcp",
+  name: "bifrost-enfusion-mcp",
   version,
 });
 
