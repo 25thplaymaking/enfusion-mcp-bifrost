@@ -24,7 +24,14 @@ Scripts/Game/DCO/Test.c(199): Broken expression (missing ';'?)
         line: 199,
         message: "Broken expression (missing ';'?)",
       },
+      { severity: "error", message: 'Can\'t compile "Game" script module!' },
     ]);
+  });
+
+  it("captures native editor reload blockers without a source file location", () => {
+    const report = parseCompileLog("SCRIPT : Reloading game scripts\nSCRIPT (E): Game Scripts reloading is not implemented in 'Navmesh Editor' workbench module!", "script.log");
+    expect(report.failed).toBe(true);
+    expect(formatCompileReport(report)).toContain("Navmesh Editor");
   });
 
   it("reports a clean compile and keeps warnings optional", () => {
@@ -35,7 +42,7 @@ Scripts/Game/DCO/Test.c(199): Broken expression (missing ';'?)
 `, "C:\\logs\\script.log");
     expect(report.failed).toBe(false);
     expect(report.sawWorkbenchGameModule).toBe(false);
-    expect(formatCompileReport(report)).toContain("Compile Passed");
+    expect(formatCompileReport(report)).toContain("Compile Unconfirmed");
     expect(formatCompileReport(report)).not.toContain("OldMethod");
     expect(formatCompileReport(report, { includeWarnings: true })).toContain("OldMethod");
   });

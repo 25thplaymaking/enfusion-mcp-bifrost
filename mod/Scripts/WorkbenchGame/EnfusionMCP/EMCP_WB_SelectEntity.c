@@ -1,3 +1,14 @@
+class EMCP_WB_SelectionSummary : JsonApiStruct
+{
+	string name;
+	string className;
+	override void OnPack()
+	{
+		StoreString("name", name);
+		StoreString("className", className);
+	}
+}
+
 /**
  * EMCP_WB_SelectEntity.c - Selection management handler
  *
@@ -52,10 +63,10 @@ class EMCP_WB_SelectEntityResponse : JsonApiStruct
 			StartArray("selectedEntities");
 			for (int i = 0; i < m_aSelectedNames.Count(); i++)
 			{
-				StartObject("");
-				StoreString("name", m_aSelectedNames[i]);
-				StoreString("className", m_aSelectedClasses[i]);
-				EndObject();
+				EMCP_WB_SelectionSummary item = new EMCP_WB_SelectionSummary();
+				item.name = m_aSelectedNames[i];
+				item.className = m_aSelectedClasses[i];
+				ItemObject(item);
 			}
 			EndArray();
 		}

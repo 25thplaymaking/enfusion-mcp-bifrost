@@ -6,6 +6,8 @@ See the [Bifrost Workbench Editor Operations Manual](docs/WORKBENCH_EDITOR_OPERA
 
 For Codex/Astra, see the [Codex workflow](docs/CODEX_WORKBENCH.md). Start with `wb_capabilities` (`live=true` for actual project/editor state), use `project` for source inspection and precise edits, and `wb_batch` for ordered live operations.
 
+The [native bridge guide](docs/NATIVE_AGENT_WORKFLOW.md) covers inspect/navigate/edit access across ten Workbench modules, exact entity and property targets, unsaved script buffers, debugger controls and runtime logs, and local documentation deployment. Install or update the bridge in the verified loaded addon with `wb_bridge`; no additional service is needed.
+
 ## Install
 
 ### Local Windows installation
@@ -105,6 +107,9 @@ Control a running Workbench instance over TCP. Requires the handler scripts inst
 | Tool | What it does |
 |------|-------------|
 | `wb_capabilities` | Editor/source/tool coverage, batch eligibility, and optional read-only live project/module discovery |
+| `wb_bridge` | Inspect/install the native plugin in a verified loaded addon without duplicating Workbench |
+| `wb_docs` | Read or deploy bundled local workflow documentation |
+| `wb_debug` | Runtime logs and cursors, source context, debugger panes and documented control dispatch |
 | `wb_batch` | Up to 25 ordered existing operations, whole-plan preflight, structured partial results, stop on error |
 | `wb_launch` | Start Workbench if not running, wait for NET API |
 | `wb_cleanup` | Remove injected MCP handlers from one mod or every detected addon before publishing |

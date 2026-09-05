@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
 
-/** Actions that mutate the resource database — require edit mode. */
-const MUTATING_RESOURCE_ACTIONS = new Set(["register", "rebuild"]);
-
 const resourcesTool = defineWorkbenchTool({
   name: "wb_resources",
   description:
@@ -33,7 +30,8 @@ const resourcesTool = defineWorkbenchTool({
     action !== "open" || allowForeground === true
       ? null
       : "Error: opening a resource can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.",
-  requireMode: ({ action }) => (MUTATING_RESOURCE_ACTIONS.has(action) ? "edit" : null),
+  // Resource Manager does not require a loaded World Editor scene.
+  requireMode: () => null,
   modeAction: ({ action }) => `${action} resource`,
   apiFunc: ({ action, path, buildRuntime }, client) => {
     if (action === "getInfo") {
@@ -76,7 +74,7 @@ const resourcesTool = defineWorkbenchTool({
     // register, rebuild, open
     const actionLabels: Record<string, string> = {
       register: `Registered resource: ${path}`,
-      rebuild: `Rebuilt resource database for: ${path}`,
+      rebuild: `Requested resource rebuild for: ${path}; completion is unconfirmed until resource/log inspection`,
       open: `Opened resource: ${path}`,
     };
 

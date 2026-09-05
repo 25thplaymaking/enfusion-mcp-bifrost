@@ -1,11 +1,13 @@
 # Bifrost Workbench Editor Operations Manual
 
 Version: 2026-09-05
-Applies to: Arma Reforger Workbench / Bifrost MCP `0.14.0-bifrost.1`
+Applies to: Arma Reforger Workbench / Bifrost MCP `0.15.0-bifrost.1`
 
 This is Bifrost's first-party reference for Workbench integration. It records what the engine exposes, what Bifrost can automate, the expected outcome of each operation, and where an apparent operation is not backed by a public API.
 
 See [Codex Workbench workflow](CODEX_WORKBENCH.md) for `wb_capabilities`, ordered `wb_batch` calls, structured outcomes, and project source search/paging/exact edits. Capabilities distinguish configured defaults from the actual live project.
+
+The [native agent workflow](NATIVE_AGENT_WORKFLOW.md) adds container inspection/navigation and verified scalar writes across all ten modules, Navmesh Generator navigation, bridge installation, local documentation deployment, conflict-checked Script Editor buffers, runtime log cursors, and debugger dispatch with observed UI verification. The public native API remains the capability boundary for each module.
 
 ## Evidence policy
 
@@ -27,7 +29,7 @@ All editor modules inherit `WBModuleDef`.
 | `wb_editor_module action=open` | `Workbench.OpenModule(EditorType)` | Module window opens | Module cannot open in the current state |
 | `action=state` | `GetModule` + `GetNumContainers` | Availability and container count | Module is not open/available |
 | `action=openResource` | `SetOpenedResource(path)` | Resource opens in that editor | Wrong editor, invalid/unregistered resource, or unsupported type |
-| `action=save` | `Save()` | Current module content saves | Module refused or has no saveable state |
+| `action=save` | `Save()` | Native save returned success; verify disk | Module refused, no saveable state, or unnamed World Editor scene (use prefab operations or observed Save As) |
 | `action=executeAction` | `ExecuteAction(path, keepFocus)` | Exact module-local menu action executes | Unknown path, unavailable action, or wrong context |
 
 `keepFocus` defaults to `false` for editor-local actions, but the engine's open-module and open-resource calls provide no focus-control parameter. Those operations, plus arbitrary menu actions, therefore require `allowForeground: true`; callers cannot activate them accidentally during background work. Script compile/reload menu paths are always rejected inside custom handlers and route through `wb_validate_scripts` or `wb_reload`. A returned `false` is an error; Bifrost never presents it as success.

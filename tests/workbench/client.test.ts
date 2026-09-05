@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createServer, type Server, type Socket } from "node:net";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import type { Config } from "../../src/config.js";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -8,6 +9,7 @@ import {
   WorkbenchError,
   classifyCallFailure,
   isLoopbackHost,
+  assertSingleWorkbench,
 } from "../../src/workbench/client.js";
 import {
   decodePascalString,
@@ -25,10 +27,10 @@ import {
 function createMockWorkbench(
   handler: (apiFunc: string, params: Record<string, unknown>) => unknown
 ): { server: Server; port: number; close: () => Promise<void> } {
-  const server = createServer((socket: Socket) => {
+  const server = createServer({ allowHalfOpen: true }, (socket: Socket) => {
     const chunks: Buffer[] = [];
     socket.on("data", (chunk) => chunks.push(chunk));
-    socket.on("end", () => {
+    socket.on("end", async () => {
       try {
         const buf = Buffer.concat(chunks);
 
@@ -44,7 +46,7 @@ function createMockWorkbench(
 
         const parsed = JSON.parse(payload);
         const { APIFunc, ...params } = parsed;
-        const response = handler(APIFunc, params);
+        const response = await handler(APIFunc, params);
         // Match real Workbench format: pascal("Ok") + pascal(JSON)
         const statusBuf = encodePascalString("Ok");
         const payloadBuf = encodePascalString(JSON.stringify(response));
@@ -70,6 +72,49 @@ function createMockWorkbench(
     close: () => new Promise((res) => server.close(() => res())),
   };
 }
+
+describe("native operation ordering and launch recovery", () => {
+  it("rejects duplicate sessions instead of choosing whichever owns the port", () => {
+    expect(() => assertSingleWorkbench([])).not.toThrow();
+    expect(() => assertSingleWorkbench([8036])).not.toThrow();
+    expect(() => assertSingleWorkbench([4872, 8036])).toThrow("No editor command was sent");
+  });
+  it("serializes concurrent requests and continues after a failed request", async () => {
+    let active = 0, maximum = 0;
+    const order: string[] = [];
+    const mock = createMockWorkbench(async name => {
+      maximum = Math.max(maximum, ++active); order.push(name);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        if (name === "failure") throw new Error("native failure");
+        return { status: "ok", name };
+      } finally { active--; }
+    });
+    try {
+      const client = new WorkbenchClient("127.0.0.1", mock.port);
+      const results = await Promise.allSettled([client.call("first"), client.call("failure"), client.call("last")]);
+      expect(results.map(r => r.status)).toEqual(["fulfilled", "rejected", "fulfilled"]);
+      expect(order).toEqual(["first", "failure", "last"]);
+      expect(maximum).toBe(1);
+    } finally { await mock.close(); }
+  });
+  it("preserves a live editor with missing handlers without installing into a default addon", async () => {
+    const root = mkdtempSync(join(tmpdir(), "emcp-existing-editor-"));
+    const calls: string[] = [];
+    const mock = createMockWorkbench(name => {
+      calls.push(name);
+      if (name === "GetLoadedProjects") return { "Loaded Projects": ["ActualAddon"] };
+      throw new Error("Undefined API func");
+    });
+    try {
+      const client = new WorkbenchClient("127.0.0.1", mock.port, { projectPath: root } as Config);
+      await expect(client.ensureRunning()).rejects.toThrow("already running");
+      expect(calls).toEqual(["EMCP_WB_Ping", "GetLoadedProjects"]);
+      await expect(client.call("Missing", {}, { allowLaunch: true })).rejects.toThrow("Undefined API func");
+      expect(readdirSync(root)).toEqual([]);
+    } finally { await mock.close(); rmSync(root, { recursive: true }); }
+  });
+});
 
 describe("WorkbenchClient", () => {
   let mockServer: ReturnType<typeof createMockWorkbench>;

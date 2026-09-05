@@ -57,6 +57,8 @@ import { registerWbKnowledge } from "./tools/wb-knowledge.js";
 import { registerBuildingSetup } from "./tools/building-setup.js";
 import { registerEditorAssets } from "./tools/editor-assets.js";
 import { registerWorkbenchWorkflows } from "./tools/wb-workflows.js";
+import { registerWbBridge } from "./tools/wb-bridge.js";
+import { registerWbDebug } from "./tools/wb-debug.js";
 import type { Config } from "./config.js";
 
 export function registerTools(server: McpServer, config: Config): void {
@@ -92,6 +94,8 @@ export function registerTools(server: McpServer, config: Config): void {
   // Orchestration tools stay hand-written (poll loops / side effects) and
   // register themselves; see ADR-0007's coverage boundary.
   registerWbLaunch(server, config, wbClient);
+  registerWbBridge(server, config, wbClient);
+  registerWbDebug(server, config, wbClient);
   registerWbDiagnose(server, wbClient);
   registerWbReload(server, config, wbClient);
   registerWbCompileStatus(server, config);

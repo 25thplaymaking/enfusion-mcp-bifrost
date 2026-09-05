@@ -174,7 +174,9 @@ export function registerWorkbenchTools(
   for (const tool of tools) {
     server.registerTool(
       tool.name,
-      { description: tool.description, inputSchema: tool.inputSchema },
+      { description: tool.description, inputSchema: tool.inputSchema,
+        outputSchema: { tool: z.string(), outcome: z.enum(["completed", "blocked", "error"]), data: z.unknown().optional(), message: z.string().optional() },
+      },
       async (input: Record<string, unknown>) => runWorkbenchTool(tool, input, client)
     );
   }

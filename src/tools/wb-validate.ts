@@ -14,14 +14,20 @@ const validateTool = defineWorkbenchTool({
       .describe("Resource path to validate (e.g., 'Materials/MyMat.emat', 'Textures/MyTex.edds')"),
   },
   apiFunc: ({ action, path }, client) => {
-    const handlerName = action === "material" ? "MaterialValidator" : "TextureValidator";
-    return client.call<Record<string, unknown>>(handlerName, { path });
+    return client.call<Record<string, unknown>>("EMCP_WB_Resources", { action: action === "material" ? "validateMaterial" : "validateTexture", path });
   },
   formatter: ({ result, input }) => {
     const { action, path } = input;
-    const valid = result.valid ?? result.success ?? true;
-    const errors = Array.isArray(result.errors) ? result.errors : [];
-    const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+    const reports = result.reports;
+    const severity = result.severity;
+    const native = Array.isArray(reports) && Array.isArray(severity) && reports.length === severity.length
+      && reports.every(r => typeof r === "string") && severity.every(s => Number.isInteger(s) && Number(s) >= 0 && Number(s) <= 3);
+    const known = native || typeof result.valid === "boolean" || typeof result.success === "boolean";
+    if (!known) return { text: "Validation unconfirmed: unrecognized native response. " + JSON.stringify(result), isError: true };
+    const valid = native ? !severity.some(s => Number(s) >= 3)
+      : (result.valid === true || result.success === true) && result.valid !== false && result.success !== false;
+    const errors = native ? reports.filter((_r, i) => Number(severity[i]) >= 3) : Array.isArray(result.errors) ? result.errors : [];
+    const warnings = native ? reports.filter((_r, i) => Number(severity[i]) < 3) : Array.isArray(result.warnings) ? result.warnings : [];
 
     const lines: string[] = [];
     const label = action === "material" ? "Material" : "Texture";
@@ -66,7 +72,7 @@ const validateTool = defineWorkbenchTool({
       lines.push(typeof result.info === "string" ? result.info : JSON.stringify(result.info, null, 2));
     }
 
-    return { text: lines.join("\n") };
+    return { text: lines.join("\n"), isError: !valid || errors.length > 0 };
   },
 });
 

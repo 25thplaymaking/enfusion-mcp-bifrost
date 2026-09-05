@@ -16,9 +16,9 @@ describe("wb_resources — requireMode + modeAction", () => {
     expect(t.validate!({ action: "getInfo", path: "P.et" })).toBeNull();
   });
 
-  it("requires edit mode only for register/rebuild", () => {
-    expect(t.requireMode!({ action: "register" })).toBe("edit");
-    expect(t.requireMode!({ action: "rebuild" })).toBe("edit");
+  it("does not require a world for Resource Manager operations", () => {
+    expect(t.requireMode!({ action: "register" })).toBeNull();
+    expect(t.requireMode!({ action: "rebuild" })).toBeNull();
     expect(t.requireMode!({ action: "getInfo" })).toBeNull();
     expect(t.requireMode!({ action: "open" })).toBeNull();
   });
@@ -58,7 +58,7 @@ describe("wb_resources — formatter", () => {
     ).toContain("**Registered resource: P.et**");
     expect(
       t.formatter({ result: {}, input: { action: "rebuild", path: "P.et" } }).text
-    ).toContain("**Rebuilt resource database for: P.et**");
+    ).toContain("Requested resource rebuild for: P.et; completion is unconfirmed");
     expect(
       t.formatter({ result: { message: "done" }, input: { action: "open", path: "P.et" } }).text
     ).toContain("**Opened resource: P.et**\n\ndone");

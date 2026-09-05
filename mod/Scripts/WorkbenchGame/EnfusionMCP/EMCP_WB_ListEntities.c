@@ -1,3 +1,20 @@
+class EMCP_WB_EntitySummary : JsonApiStruct
+{
+	string name;
+	string className;
+	string position;
+	string entityId;
+	int index;
+	override void OnPack()
+	{
+		StoreString("name", name);
+		StoreString("className", className);
+		StoreString("position", position);
+		StoreString("entityId", entityId);
+		StoreInteger("index", index);
+	}
+}
+
 /**
  * EMCP_WB_ListEntities.c - Entity listing with pagination and name filter
  *
@@ -32,6 +49,8 @@ class EMCP_WB_ListEntitiesResponse : JsonApiStruct
 	ref array<string> m_aNames;
 	ref array<string> m_aClassNames;
 	ref array<string> m_aPositions;
+	ref array<string> m_aIDs = {};
+	ref array<int> m_aIndices = {};
 
 	void EMCP_WB_ListEntitiesResponse()
 	{
@@ -51,11 +70,13 @@ class EMCP_WB_ListEntitiesResponse : JsonApiStruct
 		StartArray("entities");
 		for (int i = 0; i < m_aNames.Count(); i++)
 		{
-			StartObject("");
-			StoreString("name", m_aNames[i]);
-			StoreString("className", m_aClassNames[i]);
-			StoreString("position", m_aPositions[i]);
-			EndObject();
+			EMCP_WB_EntitySummary item = new EMCP_WB_EntitySummary();
+			item.name = m_aNames[i];
+			item.className = m_aClassNames[i];
+			item.position = m_aPositions[i];
+			item.entityId = m_aIDs[i];
+			item.index = m_aIndices[i];
+			ItemObject(item);
 		}
 		EndArray();
 	}
@@ -150,6 +171,8 @@ class EMCP_WB_ListEntities : NetApiHandler
 			resp.m_aNames.Insert(entName);
 			resp.m_aClassNames.Insert(className);
 			resp.m_aPositions.Insert(posStr);
+			resp.m_aIDs.Insert(entSrc.GetID().ToString());
+			resp.m_aIndices.Insert(i);
 			matched++;
 		}
 

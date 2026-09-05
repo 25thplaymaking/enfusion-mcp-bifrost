@@ -21,6 +21,8 @@ export function formatCompileReport(
     lines.push("**No Recent Compile Block Found** — the latest bounded script.log tail contains no compile/reload marker.");
   } else if (report.failed || errors.length > 0) {
     lines.push(`**Compile Failed** — ${errors.length} error(s), ${warnings.length} warning(s).`);
+  } else if (!report.sawWorkbenchGameModule) {
+    lines.push("**Compile Unconfirmed** — no completed WorkbenchGame module marker was observed. Inspect dialogs and runtime logs before retrying.");
   } else {
     lines.push(`**Compile Passed** — no script errors${warnings.length ? `; ${warnings.length} warning(s)` : ""}.`);
   }

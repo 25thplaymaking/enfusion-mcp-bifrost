@@ -4,7 +4,7 @@
  * Each rawCall() opens a fresh TCP connection, sends one request, reads the
  * response, and closes the socket (protocol requirement).
  *
- * call() wraps rawCall(). Auto-launch / handler-recovery is opt-in via
+ * call() wraps rawCall(). Auto-launch is opt-in via
  * `allowLaunch` (only wb_launch uses it); every other caller fails fast and
  * gets a classified, actionable hint (classifyCallFailure) instead of a 90s
  * blind poll.
@@ -14,7 +14,8 @@ import { Socket } from "node:net";
 import { existsSync, mkdirSync, copyFileSync, readdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { encodeRequest, decodeResponse } from "./protocol.js";
 import { logger } from "../utils/logger.js";
 import type { Config } from "../config.js";
@@ -29,12 +30,11 @@ const MAX_RESPONSE_SIZE = 10 * 1024 * 1024;
 const WORKBENCH_EXE = "ArmaReforgerWorkbenchSteamDiag.exe";
 const WORKBENCH_SUBDIR = "Workbench";
 const HANDLER_FOLDER = "EnfusionMCP";
+export function assertSingleWorkbench(processIds: number[]): void {
+  if (processIds.length > 1) throw new WorkbenchError(`Multiple Workbench sessions detected (${processIds.join(", ")}). Preserve unsaved work and keep one intended session before native operations. No editor command was sent.`, "API_ERROR");
+}
 const LAUNCH_POLL_INTERVAL_MS = 3_000;
 const LAUNCH_TIMEOUT_MS = 90_000;
-/** How long to wait for Workbench to recompile handler scripts after installation. */
-const HANDLER_RECOMPILE_TIMEOUT_MS = 30_000;
-/** Interval between polls while waiting for handler script recompilation. */
-const HANDLER_RECOMPILE_POLL_MS = 2_000;
 
 /** Freshness window: cached state older than this is considered `stale` (see status.ts). */
 export const STATE_TTL_MS = 30_000;
@@ -79,7 +79,7 @@ export interface WorkbenchCallOptions {
   /** Timeout in milliseconds (default 10 000). */
   timeout?: number;
   /**
-   * Opt in to auto-launch / handler-recovery on connection failure.
+   * Opt in to auto-launch on connection failure.
    * Default false — ordinary tool calls fail fast (see classifyCallFailure).
    * Only wb_launch sets this true.
    */
@@ -122,7 +122,7 @@ export function classifyCallFailure(err: WorkbenchError): string {
       return "Port open but no reply — check the bridge. Run `wb_diagnose` for details.";
     case "API_ERROR":
       if (isUndefinedApiFunction(err.message)) {
-        return "Handler scripts not loaded. Run `wb_launch`. Run `wb_diagnose` for details.";
+        return "Handler scripts not loaded. Locate the live addon with `wb_projects`, install with `wb_bridge`, then validate and `wb_reload`. Run `wb_diagnose` for details.";
       }
       return err.message;
     default:
@@ -154,6 +154,7 @@ export function detectEnvironment(): "windows" | "linux" | "wsl2" {
 
 export class WorkbenchClient {
   private launchPromise: Promise<void> | null = null;
+  private requestTail: Promise<unknown> = Promise.resolve();
   private _state: WorkbenchState = { connected: false, mode: "unknown", lastUpdated: 0 };
 
   /** Current cached connection state. Updated after every successful call. */
@@ -184,7 +185,7 @@ export class WorkbenchClient {
         if (err.code === "CONNECTION_REFUSED" || err.code === "TIMEOUT" || err.code === "PROTOCOL_ERROR") {
           this._state = { connected: false, mode: "unknown", lastUpdated: Date.now() };
         }
-        // Auto-launch / handler-recovery is opt-in (only wb_launch passes
+        // Auto-launch is opt-in (only wb_launch passes
         // allowLaunch). Every other caller fails fast so a down Workbench never
         // costs 90s / 30s of blind polling.
         if (options.allowLaunch && this.config) {
@@ -194,26 +195,7 @@ export class WorkbenchClient {
             await this.ensureRunning();
             return this.finishCall(await this.rawCall<T>(apiFunc, params, options), options);
           }
-          if (err.code === "API_ERROR" && isUndefinedApiFunction(err.message)) {
-            // Workbench is running but our custom handler scripts aren't compiled.
-            // This happens when the user opened Workbench manually, or when handlers
-            // were cleaned up but Workbench kept running.
-            logger.info(`Handler scripts not loaded in Workbench, recovering...`);
-            await this.recoverMissingHandlers();
-            try {
-              return this.finishCall(await this.rawCall<T>(apiFunc, params, options), options);
-            } catch (retryErr) {
-              if (retryErr instanceof WorkbenchError && isUndefinedApiFunction(retryErr.message)) {
-                throw new WorkbenchError(
-                  `Workbench does not expose "${apiFunc}" after reinstalling and recompiling the handler scripts. ` +
-                    "Workbench registers new NET API handler classes when the process starts, so restart the existing " +
-                    "Workbench once, then retry. Existing registered handlers can reload without a restart.",
-                  "API_ERROR"
-                );
-              }
-              throw retryErr;
-            }
-          }
+
         }
         // Attach a fail-fast hint so each tool's catch can render it uniformly.
         err.hint = classifyCallFailure(err);
@@ -535,56 +517,27 @@ export class WorkbenchClient {
     }
   }
 
-  /**
-   * Recover from "not existing Net API function" errors.
-   * Workbench is running but our custom handler scripts aren't compiled.
-   * Installs handlers into the mod directory and waits for Workbench to
-   * auto-recompile them — without killing the running Workbench process.
-   *
-   * Previous behaviour killed Workbench with taskkill, which broke other
-   * tools (e.g. the Enfusion Blender plugin) that share the same NET API.
-   */
-  private async recoverMissingHandlers(): Promise<void> {
-    if (!this.config) {
-      throw new WorkbenchError("No config provided — cannot recover handlers.", "LAUNCH_FAILED");
-    }
-
-    // Inject into the currently-open mod (same logic as launchWorkbench).
-    const recoveryGproj = this.findFallbackGproj();
-    if (recoveryGproj) {
-      this.installHandlerScripts(dirname(recoveryGproj));
-      this.cleanupStandaloneAddon();
-    } else {
-      this.installHandlerScripts();
-    }
-
-    // Wait for Workbench to detect the new files and recompile scripts.
-    // Workbench watches its script directories and recompiles automatically.
-    // Poll with our custom EMCP_WB_Ping handler — it only succeeds once
-    // the handler scripts are compiled and registered.
-    logger.info("Handler scripts installed. Waiting for Workbench to recompile...");
-    const deadline = Date.now() + HANDLER_RECOMPILE_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, HANDLER_RECOMPILE_POLL_MS));
-      if (await this.ping()) {
-        logger.info("Handler scripts compiled and loaded.");
-        return;
-      }
-    }
-
-    throw new WorkbenchError(
-      `Handler scripts were installed but Workbench did not recompile them within ` +
-        `${HANDLER_RECOMPILE_TIMEOUT_MS / 1000}s. Try recompiling scripts manually in ` +
-        `Workbench (Plugins > Reload Scripts) or restart Workbench.`,
-      "LAUNCH_FAILED"
-    );
-  }
-
   private async launchWorkbench(gprojPath?: string): Promise<void> {
     // 1. Check if already running (maybe it came up between the failed call and now)
     if (await this.ping()) {
       logger.info("Workbench is already running.");
       return;
+    }
+
+    // A missing custom handler does not mean the editor is stopped. Never
+    // spawn over a live or unresponsive native endpoint, even during recovery.
+    try {
+      await this.rawCall("GetLoadedProjects", {}, { timeout: 3000 });
+      throw new WorkbenchError("Workbench is already running but bridge handlers are unavailable. Use wb_projects locate, wb_bridge install for that exact addon, then wb_validate_scripts and wb_reload. No second instance was launched.", "LAUNCH_FAILED");
+    } catch (error) {
+      if (!(error instanceof WorkbenchError) || error.code !== "CONNECTION_REFUSED") throw error;
+    }
+    if (process.platform === "win32") {
+      const powershell = join(process.env.SystemRoot || "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe");
+      const { stdout } = await promisify(execFile)(powershell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
+        "Get-CimInstance Win32_Process -Filter \"Name='ArmaReforgerWorkbenchSteamDiag.exe'\" | Select-Object -ExpandProperty ProcessId"],
+      { windowsHide: true, timeout: 10_000, maxBuffer: 16_384 });
+      if (stdout.trim()) throw new WorkbenchError(`Workbench process ${stdout.trim().replace(/\s+/g, ", ")} already exists but NET API is unavailable. Inspect that editor; no duplicate instance was launched.`, "LAUNCH_FAILED");
     }
 
     // 2. Resolve the target .gproj and inject handler scripts into that mod.
@@ -658,6 +611,10 @@ export class WorkbenchClient {
       windowsHide: true,
       stdio: "ignore",
       cwd,
+    });
+    await new Promise<void>((resolveSpawn, rejectSpawn) => {
+      proc.once("spawn", resolveSpawn);
+      proc.once("error", error => rejectSpawn(new WorkbenchError(`Workbench failed to start: ${error.message}`, "LAUNCH_FAILED")));
     });
     proc.unref();
 
@@ -876,6 +833,35 @@ export class WorkbenchClient {
     params: Record<string, unknown> = {},
     options: WorkbenchCallOptions = {}
   ): Promise<T> {
+    const pending = this.requestTail.then(async () => {
+      await this.checkLocalSession();
+      return this.rawCallNow<T>(apiFunc, params, options);
+    });
+    this.requestTail = pending.catch(() => undefined);
+    return pending;
+  }
+
+  private localSessionCheck: { at: number; processIds: number[] } | null = null;
+  private async checkLocalSession(): Promise<void> {
+    if (process.platform !== "win32" || !isLoopbackHost(this.host) || !this.config?.workbenchPath) return;
+    // One bounded hidden query per two seconds; no watcher or persistent helper.
+    if (!this.localSessionCheck || Date.now() - this.localSessionCheck.at > 2000) {
+      const powershell = join(process.env.SystemRoot || "C:\\Windows", "System32/WindowsPowerShell/v1.0/powershell.exe");
+      const { stdout } = await promisify(execFile)(powershell, ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
+        "Get-CimInstance Win32_Process -Filter \"Name='ArmaReforgerWorkbenchSteamDiag.exe'\" | Select-Object -ExpandProperty ProcessId"],
+        { windowsHide: true, timeout: 10_000, maxBuffer: 16_384 });
+      const processIds = stdout.trim().split(/\s+/).filter(Boolean).map(Number);
+      if (processIds.some(id => !Number.isInteger(id) || id <= 0)) throw new WorkbenchError("Cannot identify local Workbench processes.", "API_ERROR");
+      this.localSessionCheck = { at: Date.now(), processIds };
+    }
+    assertSingleWorkbench(this.localSessionCheck.processIds);
+  }
+
+  private rawCallNow<T = Record<string, unknown>>(
+    apiFunc: string,
+    params: Record<string, unknown> = {},
+    options: WorkbenchCallOptions = {}
+  ): Promise<T> {
     const timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
     const requestBuf = encodeRequest(this.clientId, apiFunc, params);
 
@@ -1030,4 +1016,3 @@ export class WorkbenchClient {
     });
   }
 }
-

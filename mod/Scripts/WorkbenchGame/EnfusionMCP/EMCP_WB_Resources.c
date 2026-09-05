@@ -20,11 +20,17 @@ class EMCP_WB_ResourcesRequest : JsonApiStruct
 	}
 }
 
-class EMCP_WB_ResourceEntry
+class EMCP_WB_ResourceEntry : JsonApiStruct
 {
 	string m_sName;
 	string m_sPath;
 	string m_sType;
+	override void OnPack()
+	{
+		StoreString("name", m_sName);
+		StoreString("path", m_sPath);
+		StoreString("type", m_sType);
+	}
 }
 
 class EMCP_WB_ResourcesResponse : JsonApiStruct
@@ -54,11 +60,7 @@ class EMCP_WB_ResourcesResponse : JsonApiStruct
 			for (int i = 0; i < m_aEntries.Count(); i++)
 			{
 				EMCP_WB_ResourceEntry e = m_aEntries[i];
-				StartObject("");
-				StoreString("name", e.m_sName);
-				StoreString("path", e.m_sPath);
-				StoreString("type", e.m_sType);
-				EndObject();
+				ItemObject(e);
 			}
 			EndArray();
 		}
@@ -97,9 +99,11 @@ class EMCP_WB_Resources : NetApiHandler
 		if (req.action == "register")
 		{
 			bool result = resMgr.RegisterResourceFile(req.path, req.buildRuntime);
-			resp.status = "ok";
+			resp.status = "error";
 			if (result)
-				resp.message = "Resource registered: " + req.path;
+			{
+				resp.status = "ok"; resp.message = "Resource registered: " + req.path;
+			}
 			else
 				resp.message = "RegisterResourceFile returned false for: " + req.path;
 		}
@@ -112,11 +116,42 @@ class EMCP_WB_Resources : NetApiHandler
 		else if (req.action == "open")
 		{
 			bool result = resMgr.SetOpenedResource(req.path);
-			resp.status = "ok";
+			resp.status = "error";
 			if (result)
-				resp.message = "Opened resource: " + req.path;
+			{
+				resp.status = "ok"; resp.message = "Opened resource: " + req.path;
+			}
 			else
 				resp.message = "SetOpenedResource returned false for: " + req.path;
+		}
+		else if (req.action == "validateMaterial")
+		{
+			Resource resource = Resource.Load(req.path);
+			if (!resource || !resource.IsValid()) { resp.status = "error"; resp.message = "Material resource could not be loaded"; return resp; }
+			BaseContainer material = resource.GetResource().ToBaseContainer();
+			if (!material) { resp.status = "error"; resp.message = "Resource has no material container"; return resp; }
+			// Call shipped validation routines directly. The built-in NET handler
+			// takes an index into a separate UI plugin's selection, not a path.
+			MaterialValidatorResponse report = new MaterialValidatorResponse();
+			report.mat_name = material.GetName();
+			MaterialValidatorUtils validator = new MaterialValidatorUtils();
+			validator.ValidateUVs(material, 0, 5, report);
+			validator.CheckDefaults(material, report);
+			validator.CheckExtremes(material, 5, 95, report);
+			validator.CheckDependencies(material, report);
+			validator.CheckTextures(material, report);
+			return report;
+		}
+		else if (req.action == "validateTexture")
+		{
+			MetaFile meta = resMgr.GetMetaFile(req.path);
+			if (!meta) { resp.status = "error"; resp.message = "Texture metadata is not registered"; return resp; }
+			BaseContainerList configurations = meta.GetObjectArray("Configurations");
+			if (!configurations || configurations.Count() == 0) { resp.status = "error"; resp.message = "Texture import configuration is missing"; return resp; }
+			TextureValidatorResponse textureReport = new TextureValidatorResponse();
+			TextureValidator textureValidator = new TextureValidator();
+			textureValidator.TextureImportSettings(req.path, textureReport);
+			return textureReport;
 		}
 		else
 		{

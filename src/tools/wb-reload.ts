@@ -79,8 +79,11 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
           }
         }
       } catch (e) {
+        client.markStale();
+        const report = readCompileLogSince(config.workbenchProfile, logCursor);
         return {
-          content: [{ type: "text" as const, text: `Error reloading: ${renderError(e)}${formatConnectionStatus(client)}` }],
+          content: [{ type: "text" as const, text: `Error reloading: ${renderError(e)}\n\n${formatCompileReport(report)}${formatConnectionStatus(client)}` }],
+          structuredContent: { outcome: "error", report, next: "Resolve the reported compiler or editor-module blocker. Save/close blocking editors explicitly before retrying; do not restart or repeat blindly." },
           isError: true,
         };
       }
@@ -89,7 +92,7 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
       // handlers deliberately drop for a moment ("Undefined API func" window).
       // Wait for them to come back on their own — this is observing the user's
       // own recompile, NOT recovery (no reinstall/mutation), so it respects the
-      // opt-in launch policy. We never call recoverMissingHandlers here.
+      // opt-in launch policy.
       const deadline = Date.now() + RELOAD_CONFIRM_TIMEOUT_MS;
       for (;;) {
         await sleep(RELOAD_CONFIRM_POLL_MS);
@@ -148,6 +151,8 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
               `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
           },
         ],
+        isError: true,
+        structuredContent: { outcome: "unconfirmed", report: compileReport },
       };
     }
   );

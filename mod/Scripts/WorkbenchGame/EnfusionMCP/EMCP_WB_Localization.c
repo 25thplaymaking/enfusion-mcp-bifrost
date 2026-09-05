@@ -22,12 +22,19 @@ class EMCP_WB_LocalizationRequest : JsonApiStruct
 	}
 }
 
-class EMCP_WB_LocalizationEntry
+class EMCP_WB_LocalizationEntry : JsonApiStruct
 {
 	string m_sId;
 	string m_sEnUs;
 	string m_sTarget;
 	string m_sComment;
+	override void OnPack()
+	{
+		StoreString("id", m_sId);
+		StoreString("en_us", m_sEnUs);
+		StoreString("target", m_sTarget);
+		StoreString("comment", m_sComment);
+	}
 }
 
 class EMCP_WB_LocalizationResponse : JsonApiStruct
@@ -59,12 +66,7 @@ class EMCP_WB_LocalizationResponse : JsonApiStruct
 			for (int i = 0; i < m_aEntries.Count(); i++)
 			{
 				EMCP_WB_LocalizationEntry e = m_aEntries[i];
-				StartObject("");
-				StoreString("id", e.m_sId);
-				StoreString("en_us", e.m_sEnUs);
-				StoreString("target", e.m_sTarget);
-				StoreString("comment", e.m_sComment);
-				EndObject();
+				ItemObject(e);
 			}
 			EndArray();
 		}
@@ -74,7 +76,7 @@ class EMCP_WB_LocalizationResponse : JsonApiStruct
 			StartArray("languages");
 			for (int i = 0; i < m_aLanguages.Count(); i++)
 			{
-				StoreString("", m_aLanguages[i]);
+				ItemString(m_aLanguages[i]);
 			}
 			EndArray();
 		}

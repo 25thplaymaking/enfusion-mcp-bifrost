@@ -22,13 +22,28 @@ describe("wb_validate — formatter", () => {
     expect(text).toContain("- **Status:** Valid");
   });
 
-  it("treats a missing valid flag as passing", () => {
-    const { text } = t.formatter({
+  it("treats a missing valid flag as unconfirmed", () => {
+    const { text, isError } = t.formatter({
       result: {},
       input: { action: "texture", path: "Textures/T.edds" },
     });
-    expect(text).toContain("**Texture Validation Passed**");
-    expect(text).toContain("- **Status:** Valid");
+    expect(text).toContain("Validation unconfirmed");
+    expect(isError).toBe(true);
+  });
+
+  it("reads native report/severity arrays and rejects malformed native reports", () => {
+    const input = { action: "material", path: "M.emat" };
+    expect(t.formatter({ input, result: { reports: [], severity: [] } }).isError).toBe(false);
+    expect(t.formatter({ input, result: { reports: ["bad GUID"], severity: [3] } }).isError).toBe(true);
+    expect(t.formatter({ input, result: { reports: ["warning"], severity: [1] } }).isError).toBe(false);
+    expect(t.formatter({ input, result: { reports: ["missing severity"], severity: [] } }).isError).toBe(true);
+  });
+
+  it("rejects contradictory legacy success flags", () => {
+    const input = { action: "material", path: "M.emat" };
+    for (const result of [{ valid: false, success: true }, { valid: true, success: false }]) {
+      expect(t.formatter({ input, result }).isError).toBe(true);
+    }
   });
 
   it("renders a failing validation with error and warning lists", () => {

@@ -19,6 +19,7 @@ class EMCP_WB_GetStateResponse : JsonApiStruct
 	string status;
 	string message;
 	string mode;
+	string worldPath;
 	int entityCount;
 	int selectedCount;
 	int currentSubScene;
@@ -34,6 +35,7 @@ class EMCP_WB_GetStateResponse : JsonApiStruct
 		RegV("status");
 		RegV("message");
 		RegV("mode");
+		RegV("worldPath");
 		RegV("entityCount");
 		RegV("selectedCount");
 		RegV("currentSubScene");
@@ -49,7 +51,7 @@ class EMCP_WB_GetStateResponse : JsonApiStruct
 		StartArray("selectedNames");
 		for (int i = 0; i < m_aSelectedNames.Count(); i++)
 		{
-			StoreString("", m_aSelectedNames[i]);
+			ItemString(m_aSelectedNames[i]);
 		}
 		EndArray();
 	}
@@ -99,6 +101,7 @@ class EMCP_WB_GetState : NetApiHandler
 		// SCR_WorldEditorToolHelper checks GetWorldPath/GetWorld before enumerating.
 		string worldPath;
 		api.GetWorldPath(worldPath);
+		resp.worldPath = worldPath;
 		if (worldPath == "" && !worldEditor.IsPrefabEditMode())
 		{
 			resp.status = "ok";

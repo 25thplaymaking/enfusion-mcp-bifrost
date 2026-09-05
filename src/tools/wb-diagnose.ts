@@ -42,7 +42,7 @@ function whatToCheck(r: DiagnosticReport): string[] {
       return [
         "Are the EnfusionMCP handlers installed in the open mod?",
         "Does that mod have script compile errors preventing compilation?",
-        "Is Workbench open with that mod's .gproj loaded? Run `wb_launch` to (re)install and compile handlers.",
+        "Verify the loaded addon using wb_projects, then use wb_bridge install and wb_reload in the existing session.",
       ];
     default:
       return [];
@@ -55,7 +55,7 @@ function verdict(r: DiagnosticReport): string {
     case "up_with_handlers":
       return `✅ CONNECTED — mode: ${r.mode}. All wb_* tools available.`;
     case "up_no_handlers":
-      return "⚠️ PORT OPEN, HANDLERS NOT LOADED — run `wb_launch` to install and compile handlers.";
+      return "⚠️ PORT OPEN, HANDLERS NOT LOADED — use wb_bridge with the verified loaded addon; preserve this Workbench session.";
     case "refused":
       return "❌ NOT REACHABLE — Workbench is down, NET API is off, or the bridge is broken. See the checklist below.";
     case "timeout":
@@ -81,7 +81,7 @@ function warnings(r: DiagnosticReport): string[] {
   if (r.netApi === "up_no_handlers" && r.installedMods.length === 0) {
     out.push(
       "NET API is up but no handler scripts are installed anywhere — nothing to compile. " +
-        "Run `wb_launch` with a `gprojPath` to inject handlers into the correct mod."
+        "Use `wb_projects` to locate the loaded addon, then `wb_bridge install` with that projectPath."
     );
   }
   // ENFUSION_WORKBENCH_HOST set but the resolved host is loopback: self-contradictory.

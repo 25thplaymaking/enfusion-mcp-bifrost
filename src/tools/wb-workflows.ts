@@ -14,6 +14,7 @@ export const EDITOR_ROUTES = [
   { module: "particleEditor", tools: ["editor_asset"], source: "project", formats: [".ptc"], boundary: "Basic emitter generation plus full text source editing; no public live graph-node API." },
   { module: "proceduralAnimationEditor", tools: ["editor_asset"], source: "project", formats: [".pap", ".siga"], boundary: "Signal/bone graph source editing; no public live graph-node API." },
   { module: "behaviorEditor", tools: ["wb_editor_module"], source: "project", formats: [], boundary: "Common module control only; no verified serialized graph generator." },
+  { module: "navmeshEditor", tools: ["wb_editor_module"], source: "project", formats: [], boundary: "Native module navigation and exposed containers. Generation requires an observed/documented editor action and resource verification." },
 ] as const;
 
 export const batchSchema = {
@@ -89,7 +90,7 @@ export function registerWorkbenchWorkflows(server: McpServer, config: Config, cl
   }, async (input, extra) => runWorkbenchBatch(input, client, tools, extra.signal));
 
   server.registerTool("wb_capabilities", {
-    description: "Start here for Codex/Astra Workbench work. Discover all nine supported editor modules, source formats, authoring tools, engine limitations, and batch-eligible tools. live=true also probes actual loaded projects, state, and module availability without opening windows or changing files. Configured defaults are reported separately from live identity.",
+    description: "Start here for Codex/Astra Workbench work. Discover all ten supported editor modules, source formats, authoring tools, native inspection, debugging and documentation workflows. live=true probes native loaded projects even when bridge handlers are missing, then state and module availability without opening windows or changing files.",
     inputSchema: { live: z.boolean().default(false) },
     annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true },
   }, async ({ live }) => {
@@ -98,6 +99,10 @@ export function registerWorkbenchWorkflows(server: McpServer, config: Config, cl
       identityRule: "A default folder is not live project identity. Use actual loaded IDs and wb_projects locate with an absolute path; pass the intended projectPath to file tools.",
       editors: EDITOR_ROUTES,
       commonEditorTool: "wb_editor_module",
+      nativeInspection: "containers -> inspect -> returned node path/entityId -> setProperty with expectedTarget and expectedValue -> native readback -> explicit save",
+      bridge: "wb_bridge status/install; never launch over a running native endpoint",
+      documentation: "wb_docs list/read/deploy; project write/edit for task notes",
+      debugging: "wb_debug for runtime log cursors, source context and debugger control guidance; native debugger panes remain observable through computer use",
       batchTools: tools.map((tool) => ({ name: tool.name, description: tool.description,
         parameters: Object.entries(tool.inputSchema).map(([name, schema]) => ({ name, description: schema.description, required: !schema.isOptional() })) })),
       researchOrder: ["api_search / wb_knowledge", "wiki_search / wiki_read", "game_read / game_browse"],
@@ -105,11 +110,10 @@ export function registerWorkbenchWorkflows(server: McpServer, config: Config, cl
       focus: "State and file operations run in the background. Opens and arbitrary actions require allowForeground=true when authorized by the user; no repeated user question is required if that authorization already exists.",
     };
     if (live) {
+      const projects = await runWorkbenchTool(tools.find((t) => t.name === "wb_projects")!, { action: "list" }, client);
       const state = await runWorkbenchTool(tools.find((t) => t.name === "wb_state")!, {}, client);
-      const probes: Record<string, unknown> = { state: state.structuredContent };
+      const probes: Record<string, unknown> = { projects: projects.structuredContent, state: state.structuredContent };
       if (!state.isError) {
-        const projects = await runWorkbenchTool(tools.find((t) => t.name === "wb_projects")!, { action: "list" }, client);
-        probes.projects = projects.structuredContent;
         const modules: Record<string, unknown> = {};
         for (const editor of EDITOR_ROUTES) {
           const result = await runWorkbenchTool(tools.find((t) => t.name === "wb_editor_module")!, { action: "state", module: editor.module }, client);

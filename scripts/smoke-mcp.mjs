@@ -26,18 +26,25 @@ try {
   await client.connect(transport);
   const listed = await client.listTools();
   const names = listed.tools.map((tool) => tool.name);
-  for (const required of ["wiki_search", "menu_create", "wb_compile_status", "wb_validate_scripts", "wb_diagnose", "wb_editor_module", "editor_asset", "wb_capabilities", "wb_batch"]) {
+  for (const required of ["wiki_search", "menu_create", "wb_compile_status", "wb_validate_scripts", "wb_diagnose", "wb_editor_module", "editor_asset", "wb_capabilities", "wb_batch", "wb_bridge", "wb_docs", "wb_debug"]) {
     if (!names.includes(required)) throw new Error(`Required tool missing: ${required}`);
   }
 
   if (!client.getInstructions()?.includes("wb_capabilities")) throw new Error("Codex server instructions missing");
+  const docs = await client.listResources();
+  for (const document of ["CODEX_WORKBENCH.md", "WORKBENCH_EDITOR_OPERATIONS.md", "NATIVE_AGENT_WORKFLOW.md"]) {
+    const uri = `enfusion://workbench/docs/${document}`;
+    if (!docs.resources.some(resource => resource.uri === uri)) throw new Error(`Documentation resource missing: ${document}`);
+    const resource = await client.readResource({ uri });
+    if (!resource.contents.some(content => typeof content.text === "string" && content.text.length > 100)) throw new Error(`Documentation resource is empty: ${document}`);
+  }
   const capabilities = await client.callTool({ name: "wb_capabilities", arguments: { live: process.argv.includes("--live") } });
-  if (capabilities.isError || capabilities.structuredContent?.editors?.length !== 9) throw new Error("Editor capability map failed");
+  if (capabilities.isError || capabilities.structuredContent?.editors?.length !== 10) throw new Error("Editor capability map failed");
   let liveEvidence = null;
   if (process.argv.includes("--live")) {
     const live = capabilities.structuredContent?.live;
     if (live?.state?.outcome !== "completed" || live?.projects?.outcome !== "completed") throw new Error("Live state/project probe failed");
-    if (Object.values(live.modules ?? {}).length !== 9 || Object.values(live.modules).some(result => result.outcome !== "completed")) throw new Error("Live editor module probe failed");
+    if (Object.values(live.modules ?? {}).length !== 10 || Object.values(live.modules).some(result => result.outcome !== "completed")) throw new Error("Live editor module probe failed");
     const batch = await client.callTool({ name: "wb_batch", arguments: { steps: [
       { tool: "wb_projects", arguments: { action: "list" } },
       { tool: "wb_editor_module", arguments: { action: "state", module: "resourceManager" } },

@@ -27,8 +27,8 @@ export function registerWbLaunch(
         "Launch Arma Reforger Workbench (Arma Reforger Tools). Automatically copies handler scripts " +
         "into the target mod's Scripts/WorkbenchGame/ directory (so NET API handlers compile as part " +
         "of the mod), starts the Workbench executable, and waits for the NET API to become available. " +
-        "All other wb_* tools call this automatically if Workbench is not running, so you rarely need to " +
-        "call this directly. IMPORTANT: When done working with Workbench, call wb_cleanup to remove the " +
+        "Ordinary tools never launch Workbench. A running native endpoint with missing handlers is preserved; use wb_bridge for in-place installation. " +
+        "IMPORTANT: Before publishing a mod, call wb_cleanup to remove the " +
         "handler scripts from the mod before the user publishes.",
       inputSchema: {
         gprojPath: z
@@ -51,24 +51,22 @@ export function registerWbLaunch(
         // The mod's root directory — reused for defaultMod and the cleanup note.
         const modDir = wslGproj ? dirname(resolve(wslGproj)) : null;
 
-        // Remember which addon was requested so other tools default to it
-        if (modDir) {
-          config.defaultMod = basename(modDir);
-        }
-
         const alreadyRunning = await client.ping();
         if (alreadyRunning) {
           return {
             content: [
               {
                 type: "text" as const,
-                text: `**Workbench Already Running** — NET API is responding. All \`wb_*\` tools are available.${formatConnectionStatus(client)}`,
+                text: `**Workbench Already Running** — NET API is responding. Use wb_projects to verify the loaded addon; the requested project has not been opened.${formatConnectionStatus(client)}`,
               },
             ],
           };
         }
 
         await client.ensureRunning(wslGproj);
+
+        // Change defaults only after a successful explicit launch.
+        if (modDir) config.defaultMod = basename(modDir);
 
         const note = modDir
           ? `\n\nNote: Handler scripts were copied to ${modDir}/Scripts/WorkbenchGame/EnfusionMCP/. ` +

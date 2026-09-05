@@ -1,8 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { relative, extname, dirname, join } from "node:path";
-import { readFileSync, existsSync, writeFileSync, mkdirSync, statSync, lstatSync, readdirSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, statSync, lstatSync, readdirSync, renameSync, unlinkSync } from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
 import type { Config } from "../config.js";
 import { validateProjectPath } from "../utils/safe-path.js";
 import { listDirectory, formatSize } from "../utils/dir-listing.js";
@@ -32,13 +32,14 @@ export const projectSchema = {
   newText: z.string().max(MAX_FILE_BYTES).optional().describe("edit: replacement, which may be empty."),
   expectedMatches: z.number().int().min(1).max(10000).default(1),
   expectedSha256: z.string().regex(/^[a-fA-F0-9]{64}$/).optional().describe("write/edit: refuse if existing content differs from this read-time hash."),
+  expectedMissing: z.boolean().default(false).describe("write: refuse if the destination already exists."),
   dryRun: z.boolean().default(false).describe("write/edit: validate and report without writing."),
 };
 type ProjectInput = z.infer<z.ZodObject<typeof projectSchema>>;
 
 // Descendant junctions must not redirect edits into another addon. The
 // explicitly selected root may itself be a junction.
-function projectFile(root: string, path: string): string {
+export function projectFile(root: string, path: string): string {
   const full = validateProjectPath(root, path);
   let current = root;
   for (const segment of relative(root, full).split(/[/\\]+/).filter(Boolean)) {
@@ -72,6 +73,7 @@ export function runProjectTool(input: ProjectInput, config: Config) {
     const reply = (text: string, data: Record<string, unknown>) => ({
       content: [{ type: "text" as const, text }],
       structuredContent: { projectPath: base, path: input.path ?? ".", ...data },
+      isError: false,
     });
     if (input.action === "browse") {
       const entries = listDirectory(full, input.pattern);
@@ -147,9 +149,14 @@ export function runProjectTool(input: ProjectInput, config: Config) {
       after = parts.join(input.newText);
     }
     if (after.includes("\0") || Buffer.byteLength(after, "utf8") > MAX_FILE_BYTES) throw new Error("Content must be text and no larger than 16 MiB.");
+    if (input.expectedMissing && before !== null) throw new Error("CONFLICT: expected a new file, but the destination already exists.");
     if (!input.dryRun) {
       if (input.createDirectories) mkdirSync(dirname(full), { recursive: true });
-      writeFileSync(full, after, "utf8");
+      const temporary = join(dirname(full), `.enfusion-mcp-${randomUUID()}.tmp`);
+      try {
+        writeFileSync(temporary, after, { encoding: "utf8", flag: "wx" });
+        renameSync(temporary, full);
+      } finally { if (existsSync(temporary)) unlinkSync(temporary); }
     }
     return reply(`${input.dryRun ? "Preview" : "File written"}: ${input.path} (${Buffer.byteLength(after, "utf8")} bytes)`, {
       written: !input.dryRun, changed: before !== after, replacements,

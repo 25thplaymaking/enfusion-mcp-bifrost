@@ -1,4 +1,56 @@
-# Codex Workbench access upgrade — 2026-09-05
+# Codex native Workbench bridge — 2026-09-05
+
+## Current iteration decision record
+
+REQUIREMENTS
+- Give Codex/Astra direct navigation and inspection across the full Workbench editor suite, using the existing native plugin bridge.
+- Inspect live container/property types, values, inheritance, limits and nested objects; make conflict-checked edits with native readback.
+- Identify the actual loaded addon and editor target; reject stale targets instead of guessing from configured defaults or ambiguous names.
+- Install/update the bridge and local documentation on demand without starting another Workbench instance.
+- Support debugging with current source/buffer context, bounded runtime diagnostics, documented debugger controls and computer-use guidance where native APIs do not expose debugger internals.
+- Demonstrate discovery, authoring, a compiler failure, correction and successful native validation; preserve existing reload lifecycle fixes.
+- Keep ordinary calls in the background, all helpers hidden and bounded, and all build/test processes serial.
+- Deploy the verified build into the existing live Codex MCP registration and the loaded BifrostDev native bridge; verify both disk and runtime state separately.
+
+MINIMUM COMPONENTS NEEDED
+- The existing Node MCP process and Enforce Workbench plugin bundle; no new service or dependency.
+- A shared native reflection helper behind the existing editor-module handler, plus focused bridge/documentation and debugging tools.
+- Structured outcomes, target fingerprints, shared operation ordering, regression tests and an end-to-end smoke runner.
+
+REJECTED/NEEDS CLARIFICATION BEFORE ACTION
+- Workshop publication is outside the user's selected editor-first scope. Documentation deployment means local project documentation.
+- Undocumented debugger protocols and unverified graph APIs cannot be presented as native capabilities. Use observed UI controls for engine-owned debugger panes.
+- Do not loosen Windows permissions or use dialog-triggering engine filesystem enumeration. Use the MCP host's authorized filesystem operations.
+
+PRIMARY RISKS
+- Workbench 1.8.0.13 is running BifrostDev. This task's test instance (PID 4872) has been closed. A later Steam-launched instance (PID 8036, parent steam.exe 19764) is the sole remaining editor and owns the live NET API. Never infer loaded identity from configured defaults or the previously observed process.
+- Animation and Navmesh editors block native script reload; a restored Audio graph also caused a native resource-leak assertion. Save/close auxiliary editors before reloading; do not automatically discard the user's graphs.
+- Container and world objects may change after reload/navigation; no stale pointers may be retained by the plugin.
+- Native validators have distinct request/response contracts. Unknown or contradictory responses must remain unconfirmed/failed.
+- Debugger stepping and arbitrary menu actions may change runtime state; results must state what was observed and what remains unconfirmed.
+- Computer Use was stopped by the user before the interactive breakpoint-hit/step/watch demonstration. Keep that boundary explicit; native compile evidence does not establish debugger execution.
+- Existing Codex MCP processes retain loaded JavaScript until their connections refresh. Rebuilding the registered dist path is disk deployment, not proof every active connection reloaded.
+
+REQUEST INTERPRETATION
+- Implement and deploy the approved next upgrade, including a native equivalent of inspect/navigate/edit computer use and a complete research-to-compile workflow.
+
+UNDERSTANDING OF THE OVERALL TASK IN A BRIEF SUMMARY
+- Extend the current integration in place so an agent can discover its real Workbench context, navigate editors, inspect and change live data, deploy its working documentation, diagnose failures and verify compilation autonomously.
+
+## Current iteration progress
+
+- Version 0.15.0-bifrost.1: native reflection across ten editor modules, conflict-checked typed property edits, opaque entity IDs, buffer read/edit/save support, bridge installation, local documentation deployment and bounded debugger diagnostics/control guidance.
+- Live evidence: all ten modules opened, reported state/containers and closed. Reversible scale edits, stale-target/value rejection, nested inspection, native rotation readback and live source buffer edits passed.
+- Deliberate isolated syntax error was reported at the expected source line. The corrected source compiled successfully with zero errors and 14 existing engine warnings. A subsequent native reload recovered the bridge.
+- Fixed numeric wire booleans, native JSON arrays, inaccurate inherited Script Editor Save behavior, typed property metadata, validator routing and duplicate-launch recovery. Save All and debugger panel toggles accurately report dispatch boundaries.
+- Final TypeScript check/build passed; 795 automated tests passed, 12 skipped because external M151A2 fixtures are absent. Protocol smoke advertised 62 tools, read all three documentation resources, passed all ten live module probes and source generation/edit/search, then removed its temporary files.
+- Final native deployment: all 22 scripts and three guides match source hashes. Native WORKBENCH validation passed with zero errors and 14 base-game warnings; out-of-band reload completed and the bridge reports 0.15.0 in the sole remaining editor.
+- Live acceptance completed all edit/compiler checks but failed during generic Save of its unnamed prefab scene. The test source/entity were removed and remaining fixtures were subsequently reconciled and removed after the scene closed. The revised runner avoids that Save call; its final close-only cleanup is not yet reverified. No further editor experiments were run after the user prioritized release work.
+- Final fixes reject unnamed-world saves, route nested World Editor writes through the required root/property path, and reject multiple local Windows Workbench sessions before native dispatch (two-second process cache, hidden bounded helper). Nested write routing is compiled but has not had a further live mutation test.
+- The existing direct Node MCP registration remains unchanged with startup timeout 60 seconds. The registered dist/index.js is deployed at 0.15.0-bifrost.1. Already-loaded Codex connections still need reconnection to load new JavaScript/schemas; this task's exposed connection remains on its earlier schema. No app restart or hidden connection replacement was attempted while Computer Use was stopped.
+- Final process/file inventory: exactly one Workbench (8036); no owned test/build/helper process remains; no owned fixture files remain; cmd.exe count is 25 (original 25, resumed baseline 31). User release work is unblocked. Local evidence: .git/native-final-checks.log, .git/native-deploy-final.log, .git/native-protocol-final.log, .git/native-acceptance-final.log.
+
+## Previous verified iteration
 
 REQUIREMENTS
 - Extend the existing MCP for Astra/Codex across the full Workbench editor suite.

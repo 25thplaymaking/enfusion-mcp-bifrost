@@ -88,6 +88,7 @@ export function parseCompileLog(text: string, logPath: string | null = null, tru
       /SCRIPT\s+\(([EW])\):\s+@"([^"]+\.c),(\d+)":\s*(.+)$/i
     );
     const compact = lineText.match(/^\s*([^\r\n]+\.c)\((\d+)\):\s*(.+)$/i);
+    const general = lineText.match(/SCRIPT\s+\(([EW])\):\s*(.+)$/i);
     let diagnostic: CompileDiagnostic | null = null;
     if (structured) {
       diagnostic = {
@@ -103,6 +104,8 @@ export function parseCompileLog(text: string, logPath: string | null = null, tru
         line: Number(compact[2]),
         message: compact[3].trim(),
       };
+    } else if (general) {
+      diagnostic = { severity: general[1].toUpperCase() === "E" ? "error" : "warning", message: general[2].trim() };
     }
 
     if (!diagnostic) continue;

@@ -81,7 +81,7 @@ describe("Workbench capabilities", () => {
     registerWorkbenchWorkflows(server, { projectPath: "root", defaultMod: "DifferentFolder" } as Config, fakeClient({ call }), [...stateTools, ...projectTools, ...editorModuleTools]);
     const offline = await handlers.wb_capabilities({ live: false });
     expect(call).not.toHaveBeenCalled();
-    expect(offline.structuredContent.editors).toHaveLength(9);
+    expect(offline.structuredContent.editors).toHaveLength(10);
     const live = await handlers.wb_capabilities({ live: true });
     expect(live.structuredContent.configuredDefaultMod).toBe("DifferentFolder");
     expect(live.structuredContent.live.projects.data["Loaded Projects"]).toEqual(["ActualAddon"]);

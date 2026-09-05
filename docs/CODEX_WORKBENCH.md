@@ -4,7 +4,9 @@ This server exposes the same capabilities to all MCP clients. There is no model-
 
 ## Start with evidence
 
-Call `wb_capabilities` with `live=true`. It reports the configured project root/default separately from actual loaded addon IDs, world state, and the nine supported editor module probes. A default folder is not evidence of the loaded project. Module availability does not mean a resource is open or an operation was tested.
+Call `wb_capabilities` with `live=true`. It reports the configured project root/default separately from actual loaded addon IDs, world state, and the ten supported editor module probes. A default folder is not evidence of the loaded project. Module availability does not mean a resource is open or an operation was tested.
+
+The [native agent workflow](NATIVE_AGENT_WORKFLOW.md) covers plugin installation, native container/property inspection and editing, conflict-checked script buffers, debugging, and documentation deployment. `wb_bridge` updates the verified loaded addon without launching; `wb_docs` exposes and deploys the local guides; `wb_debug` combines runtime log cursors with native debugger control and explicit observation boundaries.
 
 `wb_projects` with `action=list` returns actual addon IDs. With `action=locate`, supply `path` as an absolute path inside a loaded project; the native endpoint identifies its owner. The old `name` parameter is accepted as a path alias, not as a guessed addon-name lookup.
 
@@ -21,7 +23,7 @@ Pass the intended absolute `projectPath` to authoring tools. Read the relevant A
 - `read`: returns text and a SHA-256. Use `startLine` and `maxLines` for numbered excerpts of larger sources. `nextLine` reports continuation. These display lines are **1-based**.
 - `search`: literal, recursive text search with file/line matches; `pattern` filters an extension. Case-insensitive by default. Coverage limits and skipped sources are explicit, so an incomplete search cannot establish absence.
 - `edit`: replace exact `oldText` with `newText`; defaults to exactly one match. Use `expectedMatches` for intentional repeated replacements. An optional `expectedSha256` prevents applying a read-time decision to changed content. `dryRun=true` previews without writing.
-- `write`: creates/replaces a supported text source. Supports `expectedSha256` and `dryRun` too. Writes do not silently compile/register resources.
+- `write`: creates/replaces a supported text source using an adjacent temporary file and rename. Supports `expectedSha256`, `expectedMissing` and `dryRun`. Writes do not silently compile/register resources.
 
 Reads/edits support UTF-8, preserving BOM and existing newline bytes outside replacements. A source is limited to 16 MiB, one read response to 512 KB, and ranged reads to 2,000 lines. Search is bounded to 2,000 source files / 32 MiB / 10,000 directory entries / 200 results. Descendant symlinks/junctions are skipped or rejected; select the intended target root explicitly. Binary resources remain engine-owned.
 
@@ -68,8 +70,8 @@ enabled = true
 
 Keep existing environment settings from the installation. Check for an existing registration before adding one. Do not introduce shell wrappers or visible consoles.
 
-After rebuilding this MCP process, reconnect it or start a fresh Codex task so the client discovers updated schemas. An already-running Node server keeps its previously loaded modules. This MCP-side upgrade adds no engine handler classes and needs no Workbench restart.
+After rebuilding this MCP process, reconnect it or start a fresh Codex task so the client discovers updated schemas. An already-running Node server keeps its previously loaded modules. Install the updated engine bundle with `wb_bridge`, then validate/reload it. The new operations use existing NET API handlers; helper classes are reloaded with the bundle.
 
-Run the regression suite and build serially. `node scripts/smoke-mcp.mjs --live` checks MCP instructions/discovery, isolated source/asset authoring, ordered calls, loaded projects, and all nine module state probes. It closes its child MCP server and removes its own temporary fixtures. It does not save, reload, open, or modify the active Workbench project.
+Run the regression suite and build serially. `node scripts/smoke-mcp.mjs --live` checks MCP instructions/discovery, isolated source/asset authoring, ordered calls, loaded projects, and all ten module state probes. It closes its child MCP server and removes its own temporary fixtures. It does not save, reload, open, or modify the active Workbench project.
 
 Add `--project-path <absolute-loaded-project-root>` to verify native project location, local prefab discovery, and a registered GUID lookup against a project containing prefabs. This extra check is also read-only.
