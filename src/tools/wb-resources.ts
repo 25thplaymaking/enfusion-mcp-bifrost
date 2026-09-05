@@ -7,7 +7,7 @@ const MUTATING_RESOURCE_ACTIONS = new Set(["register", "rebuild"]);
 const resourcesTool = defineWorkbenchTool({
   name: "wb_resources",
   description:
-    "Manage Workbench resources. Register new resources, rebuild resource databases, get resource info, or open a resource in its editor.",
+    "Manage Workbench resources. Register resources, rebuild databases, or inspect resource info in the background. Opening a resource can activate Workbench and requires explicit allowForeground permission.",
   inputSchema: {
     action: z
       .enum(["register", "rebuild", "getInfo", "open"])
@@ -23,7 +23,16 @@ const resourcesTool = defineWorkbenchTool({
       .boolean()
       .optional()
       .describe("Build runtime data during register/rebuild (slower but ensures assets are ready)"),
+    allowForeground: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Required acknowledgement for action=open because it can activate a Workbench window."),
   },
+  validate: ({ action, allowForeground }) =>
+    action !== "open" || allowForeground === true
+      ? null
+      : "Error: opening a resource can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.",
   requireMode: ({ action }) => (MUTATING_RESOURCE_ACTIONS.has(action) ? "edit" : null),
   modeAction: ({ action }) => `${action} resource`,
   apiFunc: ({ action, path, buildRuntime }, client) => {

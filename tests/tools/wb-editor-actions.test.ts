@@ -46,11 +46,11 @@ describe("wb_save — formatter", () => {
     expect(text).toBe("**Save Complete**\n\nSaved as: worlds/MyWorld.ent\n2 layers written");
   });
 
-  it("renders a pending save without flagging an error", () => {
+  it("reports an unconfirmed save as an error without claiming a dialog was observed", () => {
     const { text, isError } = save.formatter({ result: { pending: true }, input: {} });
-    expect(text).toContain("**Save Pending**");
-    expect(text).toContain("requires user confirmation");
-    expect(isError).toBeUndefined();
+    expect(text).toContain("**Save Unconfirmed**");
+    expect(text).toContain("may require user confirmation");
+    expect(isError).toBe(true);
   });
 });
 
@@ -73,6 +73,11 @@ describe("wb_undo_redo — formatter", () => {
 });
 
 describe("wb_open_resource — formatter", () => {
+  it("requires explicit permission for foreground window activity", () => {
+    expect(openResource.validate?.({ path: "a.et" })).toContain("can activate Workbench");
+    expect(openResource.validate?.({ path: "a.et", allowForeground: true })).toBeNull();
+  });
+
   it("echoes the requested path", () => {
     expect(
       openResource.formatter({ result: {}, input: { path: "Prefabs/Weapons/AK47.et" } }).text
@@ -90,7 +95,7 @@ describe("wb_open_resource — formatter", () => {
 });
 
 describe("wb_save — through the envelope", () => {
-  it("treats a TIMEOUT as a pending save, not an error", async () => {
+  it("treats a TIMEOUT as unconfirmed so dependent operations stop", async () => {
     const res = await runWorkbenchTool(
       save,
       {},
@@ -98,9 +103,9 @@ describe("wb_save — through the envelope", () => {
         call: () => Promise.reject(new WorkbenchError("call timed out after 30000ms", "TIMEOUT")),
       })
     );
-    expect(res.content[0].text).toContain("**Save Pending**");
+    expect(res.content[0].text).toContain("**Save Unconfirmed**");
     expect(res.content[0].text).toContain(FOOTER);
-    expect(res.isError).toBeUndefined();
+    expect(res.isError).toBe(true);
   });
 
   it("lets any other failure fall through to the envelope's error path", async () => {
@@ -116,6 +121,6 @@ describe("wb_save — through the envelope", () => {
   it("blocks in play mode with the original 'save' wording", async () => {
     const res = await runWorkbenchTool(save, {}, fakeClient({ state: { mode: "play" } }));
     expect(res.content[0].text).toContain("Cannot save while in play mode");
-    expect(res.isError).toBeUndefined();
+    expect(res.isError).toBe(true);
   });
 });

@@ -50,6 +50,16 @@ class EMCP_WB_Ping : NetApiHandler
 		WorldEditorAPI api = worldEditor.GetApi();
 		if (api)
 		{
+			string worldPath;
+			api.GetWorldPath(worldPath);
+			if (worldPath == "" && !worldEditor.IsPrefabEditMode())
+			{
+				resp.status = "ok";
+				resp.mode = "no_world";
+				resp.message = "EnfusionMCP Workbench bridge active (no world loaded)";
+				return resp;
+			}
+
 			resp.status = "ok";
 			resp.mode = "edit";
 			resp.message = "EnfusionMCP Workbench bridge active";

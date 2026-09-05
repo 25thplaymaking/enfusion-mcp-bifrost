@@ -36,7 +36,8 @@ describe("wb_script_editor — validate", () => {
 
   it("requires a path for openFile and accepts read-only actions", () => {
     expect(t.validate!({ action: "openFile" })).toBe('Error: `path` is required for the "openFile" action.');
-    expect(t.validate!({ action: "openFile", path: "Scripts/A.c" })).toBeNull();
+    expect(t.validate!({ action: "openFile", path: "Scripts/A.c" })).toContain("can activate Workbench");
+    expect(t.validate!({ action: "openFile", path: "Scripts/A.c", allowForeground: true })).toBeNull();
     expect(t.validate!({ action: "getCurrentFile" })).toBeNull();
     expect(t.validate!({ action: "getLinesCount" })).toBeNull();
   });

@@ -1,6 +1,6 @@
 {
   "name": "enfusion-mcp-bifrost",
-  "version": "0.13.0-bifrost.1",
+  "version": "0.14.0-bifrost.1",
   "private": true,
   "type": "module",
   "description": "Bifrost's focus-safe MCP suite for Arma Reforger Workbench and Enfusion authoring",

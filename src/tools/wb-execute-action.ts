@@ -9,26 +9,41 @@ const BLOCKED_MENU_PREFIXES = [
   "File,Quit",
 ];
 
+// Compiling/reloading WorkbenchGame from inside a custom handler's GetResponse
+// tears down the handler while NET API is still serializing it. Those actions
+// must use the native endpoints whose completion is confirmed out-of-band.
 const executeActionTool = defineWorkbenchTool({
   name: "wb_execute_action",
   description:
-    "Execute any Workbench menu action by its menu path. Use comma-separated path segments to identify the action (e.g., 'Tools,Reload Scripts' or 'File,Save'). " +
-    "Some destructive actions (File,Close; File,New; File,Exit) are blocked for safety.",
+    "Execute a Workbench menu action by its menu path. Arbitrary menu actions can activate windows and require explicit allowForeground permission. " +
+    "Destructive actions and script compile/reload actions are blocked; use wb_validate_scripts or wb_reload for scripts.",
   inputSchema: {
     menuPath: z
       .string()
       .describe(
-        "Comma-separated menu path (e.g., 'Tools,Reload Scripts', 'File,Save', 'Edit,Undo')"
+        "Comma-separated menu path (e.g., 'File,Save', 'Edit,Undo')"
       ),
+    allowForeground: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Required acknowledgement because an arbitrary menu action can activate a Workbench window."),
   },
   // Reject known-destructive menu paths before any mode probe or I/O. Rendered
   // through the envelope's usage-error path (now flagged isError).
-  validate: ({ menuPath }) => {
+  validate: ({ menuPath, allowForeground }) => {
     const normalizedPath = menuPath.trim();
+    const lowerPath = normalizedPath.toLowerCase();
     for (const blocked of BLOCKED_MENU_PREFIXES) {
-      if (normalizedPath.startsWith(blocked)) {
+      if (lowerPath.startsWith(blocked.toLowerCase())) {
         return `**Blocked:** "${menuPath}" is a destructive action and cannot be executed via this tool. Perform it manually in Workbench.`;
       }
+    }
+    if (lowerPath.includes("reload scripts") || lowerPath.includes("compile")) {
+      return `**Blocked:** "${menuPath}" can destroy the NET API handler during its reply. Use \`wb_validate_scripts\` or \`wb_reload\` instead.`;
+    }
+    if (allowForeground !== true) {
+      return "Error: an arbitrary menu action can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.";
     }
     return null;
   },

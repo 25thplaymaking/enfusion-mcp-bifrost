@@ -12,10 +12,8 @@ import { WorkbenchError } from "../workbench/client.js";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
 
 /**
- * A save either completes or is left pending behind a modal dialog. The pending
- * case is an *outcome*, not a failure — Workbench really did open the dialog and
- * the user can still confirm it — so `apiFunc` catches the timeout and the
- * formatter renders it without `isError`, as the hand-written version did.
+ * A timed-out save has an unknown outcome. A modal dialog is one possible
+ * cause, not an observation. Do not claim success or retry a mutation blindly.
  */
 type SaveOutcome =
   | { pending: false; result: Record<string, unknown> }
@@ -51,7 +49,8 @@ const saveTool = defineWorkbenchTool({
   formatter: ({ result, input }) => {
     if (result.pending) {
       return {
-        text: "**Save Pending** — Workbench opened a save dialog that requires user confirmation. The world will be saved once the user clicks OK in Workbench. This is normal for worlds that haven't been saved before.",
+        text: "**Save Unconfirmed** — Workbench did not reply before the timeout. A save dialog may require user confirmation, or the editor may still be busy. Inspect Workbench before retrying; saving has not been confirmed.",
+        isError: true,
       };
     }
 
@@ -78,12 +77,21 @@ const undoRedoTool = defineWorkbenchTool({
 const openResourceTool = defineWorkbenchTool({
   name: "wb_open_resource",
   description:
-    "Open a resource file in the appropriate Workbench editor (e.g., a .et prefab in the Prefab Editor, a .c script in the Script Editor).",
+    "Open a resource file in the appropriate Workbench editor. This can activate Workbench and requires explicit allowForeground permission.",
   inputSchema: {
     path: z
       .string()
       .describe("Resource path to open (e.g., 'Prefabs/Weapons/AK47.et', 'Scripts/Game/MyScript.c')"),
+    allowForeground: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Required acknowledgement because opening a resource can activate a Workbench window."),
   },
+  validate: ({ allowForeground }) =>
+    allowForeground === true
+      ? null
+      : "Error: opening a resource can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.",
   apiFunc: ({ path }, client) =>
     client.call<Record<string, unknown>>("EMCP_WB_EditorControl", {
       action: "openResource",

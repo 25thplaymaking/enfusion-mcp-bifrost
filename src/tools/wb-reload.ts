@@ -4,21 +4,52 @@ import type { Config } from "../config.js";
 import {
   RELOAD_CONFIRM_TIMEOUT_MS,
   RELOAD_CONFIRM_POLL_MS,
+  WorkbenchError,
   type WorkbenchClient,
 } from "../workbench/client.js";
 import { formatConnectionStatus } from "../workbench/status.js";
 import { sleep, renderError } from "../workbench/tool-helpers.js";
-import { captureCompileLogCursor, readCompileLogSince } from "../workbench/compile-log.js";
+import {
+  captureCompileLogCursor,
+  readCompileLogSince,
+  type CompileLogReport,
+} from "../workbench/compile-log.js";
 import { formatCompileReport } from "./wb-compile-status.js";
+
+type ReloadTarget = "scripts" | "plugins" | "both";
+
+export function isReloadConfirmed(
+  target: ReloadTarget,
+  handlersBack: boolean,
+  compileReport: Pick<CompileLogReport, "sawWorkbenchGameModule">
+): boolean {
+  return handlersBack && (target === "plugins" || compileReport.sawWorkbenchGameModule);
+}
+
+export function shouldProbeReloadHandler(
+  target: ReloadTarget,
+  compileReport: Pick<CompileLogReport, "sawWorkbenchGameModule" | "failed">
+): boolean {
+  return target === "plugins" || (compileReport.sawWorkbenchGameModule && !compileReport.failed);
+}
+
+export function isExpectedNativeReloadDisconnect(error: unknown): boolean {
+  return (
+    error instanceof WorkbenchError &&
+    (error.code === "PROTOCOL_ERROR" || error.code === "TIMEOUT")
+  );
+}
 
 /**
  * wb_reload — reload scripts or plugins in the running Workbench.
  *
- * Left hand-written (not migrated to defineWorkbenchTool, ADR-0007): the reload
- * drops the socket while Workbench recompiles, so the tool polls until the
- * connection comes back (RELOAD_CONFIRM_TIMEOUT_MS) and reports whether the
- * handshake was confirmed. That poll loop is the orchestration shape the
- * envelope's "guard → call(s) → format once → footer → catch" does not cover.
+ * Left hand-written (not migrated to defineWorkbenchTool, ADR-0007): the NET
+ * API cannot reload its own script module safely: its handler/request/response
+ * remain alive until serialization finishes. Script reload therefore uses the
+ * engine's native ReloadScripts endpoint, which is not implemented in the
+ * reloaded WorkbenchGame module. The native endpoint may close or outlive its
+ * TCP request during teardown, so completion is established out-of-band from
+ * a fresh compile marker and live handlers.
  */
 export function registerWbReload(server: McpServer, config: Config, client: WorkbenchClient): void {
   server.registerTool(
@@ -37,7 +68,16 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
     async ({ target }) => {
       const logCursor = captureCompileLogCursor(config.workbenchProfile);
       try {
-        await client.call<Record<string, unknown>>("EMCP_WB_Reload", { target });
+        if (target === "plugins" || target === "both") {
+          await client.call<Record<string, unknown>>("EMCP_WB_Reload", { target: "plugins" });
+        }
+        if (target === "scripts" || target === "both") {
+          try {
+            await client.call<Record<string, unknown>>("ReloadScripts");
+          } catch (error) {
+            if (!isExpectedNativeReloadDisconnect(error)) throw error;
+          }
+        }
       } catch (e) {
         return {
           content: [{ type: "text" as const, text: `Error reloading: ${renderError(e)}${formatConnectionStatus(client)}` }],
@@ -53,22 +93,39 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
       const deadline = Date.now() + RELOAD_CONFIRM_TIMEOUT_MS;
       for (;;) {
         await sleep(RELOAD_CONFIRM_POLL_MS);
-        let back = false;
-        try {
-          // Refreshes `connected`; mode is unchanged by a reload.
-          await client.call<Record<string, unknown>>("EMCP_WB_Ping");
-          back = true;
-        } catch {
-          /* handlers still recompiling — keep polling */
-        }
-        if (back) {
-          const compileReport = readCompileLogSince(config.workbenchProfile, logCursor);
+        const compileReport = readCompileLogSince(config.workbenchProfile, logCursor);
+        if (compileReport.failed) {
+          client.markStale();
           return {
             content: [
               {
                 type: "text" as const,
                 text:
-                  `**Reload Complete** — handlers back online.\n\n` +
+                  `**Reload Failed** — Workbench reported a script compilation error.\n\n` +
+                  `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
+              },
+            ],
+            isError: true,
+          };
+        }
+        let back = false;
+        if (shouldProbeReloadHandler(target, compileReport)) {
+          try {
+            // Probe only after WorkbenchGame has rebuilt. Probing while the
+            // handler class is absent writes one NET API error per poll.
+            await client.call<Record<string, unknown>>("EMCP_WB_Ping");
+            back = true;
+          } catch {
+            /* module finished but handlers are not registered yet */
+          }
+        }
+        if (isReloadConfirmed(target, back, compileReport)) {
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  `**Reload Complete** — native focus-free reload ran and handlers are back online.\n\n` +
                   `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
               },
             ],
@@ -77,8 +134,8 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
         if (Date.now() >= deadline) break;
       }
 
-      // Budget elapsed — handlers never returned. Almost always a script compile
-      // error blocking recompilation. Soft-degrade, don't recover.
+      // Require a compile marker as well as a ping so a responsive handler from
+      // before the native action cannot be mistaken for a completed reload.
       client.markStale();
       const compileReport = readCompileLogSince(config.workbenchProfile, logCursor);
       return {
@@ -86,8 +143,8 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
           {
             type: "text" as const,
             text:
-              `**Reload Triggered** — handlers haven't come back online within ${RELOAD_CONFIRM_TIMEOUT_MS / 1000}s. ` +
-              `This is likely a script compile error blocking recompilation.\n\n` +
+              `**Reload Unconfirmed** — no completed focus-free reload was observed within ${RELOAD_CONFIRM_TIMEOUT_MS / 1000}s. ` +
+              `This can mean the native reload was rejected or a script compile error blocked handler reload.\n\n` +
               `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
           },
         ],

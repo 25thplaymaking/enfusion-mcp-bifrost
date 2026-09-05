@@ -56,6 +56,7 @@ import { registerAnimationGraph } from "./tools/animation-graph.js";
 import { registerWbKnowledge } from "./tools/wb-knowledge.js";
 import { registerBuildingSetup } from "./tools/building-setup.js";
 import { registerEditorAssets } from "./tools/editor-assets.js";
+import { registerWorkbenchWorkflows } from "./tools/wb-workflows.js";
 import type { Config } from "./config.js";
 
 export function registerTools(server: McpServer, config: Config): void {
@@ -96,7 +97,7 @@ export function registerTools(server: McpServer, config: Config): void {
   registerWbCompileStatus(server, config);
   registerWbEditorTools(server, wbClient);
   // Every covered wb_* tool — one greppable list, one envelope.
-  registerWorkbenchTools(server, wbClient, [
+  const workbenchTools = [
     ...entityTools,
     ...resourceTools,
     ...prefabTools,
@@ -114,7 +115,9 @@ export function registerTools(server: McpServer, config: Config): void {
     ...editorActionTools,
     ...editorModuleTools,
     ...scriptCompileTools,
-  ]);
+  ];
+  registerWorkbenchTools(server, wbClient, workbenchTools);
+  registerWorkbenchWorkflows(server, config, wbClient, workbenchTools);
   registerScenarioTools(server, wbClient);
   registerScenarioCreate(server, config);
 

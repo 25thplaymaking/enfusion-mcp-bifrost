@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
@@ -26,8 +26,37 @@ try {
   await client.connect(transport);
   const listed = await client.listTools();
   const names = listed.tools.map((tool) => tool.name);
-  for (const required of ["wiki_search", "menu_create", "wb_compile_status", "wb_validate_scripts", "wb_diagnose", "wb_editor_module", "editor_asset"]) {
+  for (const required of ["wiki_search", "menu_create", "wb_compile_status", "wb_validate_scripts", "wb_diagnose", "wb_editor_module", "editor_asset", "wb_capabilities", "wb_batch"]) {
     if (!names.includes(required)) throw new Error(`Required tool missing: ${required}`);
+  }
+
+  if (!client.getInstructions()?.includes("wb_capabilities")) throw new Error("Codex server instructions missing");
+  const capabilities = await client.callTool({ name: "wb_capabilities", arguments: { live: process.argv.includes("--live") } });
+  if (capabilities.isError || capabilities.structuredContent?.editors?.length !== 9) throw new Error("Editor capability map failed");
+  let liveEvidence = null;
+  if (process.argv.includes("--live")) {
+    const live = capabilities.structuredContent?.live;
+    if (live?.state?.outcome !== "completed" || live?.projects?.outcome !== "completed") throw new Error("Live state/project probe failed");
+    if (Object.values(live.modules ?? {}).length !== 9 || Object.values(live.modules).some(result => result.outcome !== "completed")) throw new Error("Live editor module probe failed");
+    const batch = await client.callTool({ name: "wb_batch", arguments: { steps: [
+      { tool: "wb_projects", arguments: { action: "list" } },
+      { tool: "wb_editor_module", arguments: { action: "state", module: "resourceManager" } },
+    ] } });
+    if (batch.isError || batch.structuredContent?.executed !== 2) throw new Error("Live ordered batch failed");
+    liveEvidence = { modules: Object.keys(live.modules), projects: live.projects.data, batchExecuted: batch.structuredContent.executed };
+    const projectFlag = process.argv.indexOf("--project-path");
+    if (projectFlag >= 0) {
+      const projectPath = process.argv[projectFlag + 1];
+      if (!projectPath) throw new Error("--project-path requires an absolute loaded project path");
+      const located = await client.callTool({ name: "wb_projects", arguments: { action: "locate", path: projectPath } });
+      if (located.isError || !located.structuredContent?.data?.projectName) throw new Error(`Native project locate failed: ${JSON.stringify(located.content)}`);
+      const prefabs = await client.callTool({ name: "wb_prefabs", arguments: { action: "locate", searchPath: projectPath } });
+      const paths = prefabs.structuredContent?.data?.prefabsPaths;
+      if (prefabs.isError || !paths?.length) throw new Error(`Native prefab locate failed: ${JSON.stringify(prefabs.content)}`);
+      const guid = await client.callTool({ name: "wb_prefabs", arguments: { action: "getGuid", templatePath: paths[0] } });
+      if (guid.isError || !guid.structuredContent?.data?.guid) throw new Error(`Native prefab GUID lookup failed: ${JSON.stringify(guid.content)}`);
+      liveEvidence.nativeAdapters = { project: located.structuredContent.data.projectName, prefabCount: paths.length, guid: guid.structuredContent.data.guid };
+    }
   }
 
   const wiki = await client.callTool({
@@ -94,15 +123,29 @@ try {
       arguments: { action: "inspect", path: arguments_.outputPath, projectPath: outputRoot },
     });
     if (inspected.isError) throw new Error(`editor_asset inspect failed for ${arguments_.outputPath}`);
+    const read = await client.callTool({ name: "project", arguments: { action: "read", path: arguments_.outputPath, projectPath: outputRoot, startLine: 1, maxLines: 2 } });
+    if (read.isError || !read.structuredContent?.sha256) throw new Error("Paged editor-source read failed");
   }
+
+  const source = "Scripts/Smoke.c";
+  const written = await client.callTool({ name: "project", arguments: { action: "write", path: source, content: "class Smoke { int value = 1; }", projectPath: outputRoot } });
+  if (written.isError) throw new Error("Source write failed");
+  const edited = await client.callTool({ name: "project", arguments: { action: "edit", path: source, oldText: "value = 1", newText: "value = 2", expectedSha256: written.structuredContent.sha256, projectPath: outputRoot } });
+  if (edited.isError || !edited.structuredContent?.written) throw new Error("Hash-checked source edit failed");
+  const search = await client.callTool({ name: "project", arguments: { action: "search", query: "value = 2", pattern: "*.c", projectPath: outputRoot } });
+  if (search.isError || search.structuredContent?.matches?.length !== 1 || search.structuredContent.partial) throw new Error("Source search failed");
 
   process.stdout.write(JSON.stringify({
     protocol: "ok",
     toolCount: names.length,
-    outputRoot,
-    generatedLayout: join(outputRoot, "UI", "layouts", "Menus", "BIF_SmokeMenu.layout"),
-    generatedEditorAssets: assets.map((asset) => join(outputRoot, asset.outputPath)),
+    liveEvidence,
+    generatedEditorAssets: assets.map((asset) => asset.outputPath),
+    sourceEditAndSearch: "passed",
+    temporaryFiles: "removed on exit",
   }));
 } finally {
   await client.close();
+  const resolvedOutput = resolve(outputRoot);
+  if (dirname(resolvedOutput) !== resolve(tmpdir()) || !basename(resolvedOutput).startsWith("bifrost-mcp-smoke-")) throw new Error("Unexpected smoke fixture directory");
+  rmSync(resolvedOutput, { recursive: true, force: true });
 }

@@ -93,6 +93,20 @@ class EMCP_WB_GetState : NetApiHandler
 			return resp;
 		}
 
+		// GetApi() can return a non-null interface while World Editor is showing its
+		// unnamed empty world. Entity/sub-scene calls on that interface are unsafe in
+		// Workbench 1.8 and can access-violate the native process. The packed
+		// SCR_WorldEditorToolHelper checks GetWorldPath/GetWorld before enumerating.
+		string worldPath;
+		api.GetWorldPath(worldPath);
+		if (worldPath == "" && !worldEditor.IsPrefabEditMode())
+		{
+			resp.status = "ok";
+			resp.mode = "no_world";
+			resp.message = "World Editor is open with no world loaded";
+			return resp;
+		}
+
 		// Edit mode - collect full state
 		resp.mode = "edit";
 		resp.entityCount = api.GetEditorEntityCount();

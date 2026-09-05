@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createServer, type Server, type Socket } from "node:net";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   WorkbenchClient,
   WorkbenchError,
@@ -125,6 +128,13 @@ describe("WorkbenchClient", () => {
       code: "API_ERROR",
       message: "Entity not found",
     });
+  });
+
+  it("throws for the uppercase ERROR used by shipped Blender/asset handlers", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench(() => ({ status: "ERROR", message: "Could not find active project" }));
+    const errorClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+    await expect(errorClient.call("LocateProject", { path: "missing" })).rejects.toMatchObject({ code: "API_ERROR", message: "Could not find active project" });
   });
 
   it("allows an explicitly optional lookup to tolerate an in-band error", async () => {
@@ -257,6 +267,22 @@ describe("WorkbenchClient", () => {
     expect(stateClient.state.mode).toBe("edit");
   });
 
+  it("clears a cached mode when Workbench has no world loaded", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench((apiFunc) => {
+      if (apiFunc === "EMCP_WB_Ping") return { status: "ok", mode: "edit" };
+      if (apiFunc === "EMCP_WB_GetState") return { status: "ok", mode: "no_world" };
+      return { status: "ok" };
+    });
+    const stateClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+
+    await stateClient.call("EMCP_WB_Ping");
+    expect(stateClient.state.mode).toBe("edit");
+    await stateClient.call("EMCP_WB_GetState");
+    expect(stateClient.state.mode).toBe("unknown");
+    expect(stateClient.state.connected).toBe(true);
+  });
+
   it("refreshState updates cached state", async () => {
     await mockServer.close();
     mockServer = createMockWorkbench((apiFunc) => {
@@ -335,6 +361,31 @@ describe("isLoopbackHost", () => {
   });
   it("treats a bridged host as non-loopback", () => {
     expect(isLoopbackHost("172.20.0.1")).toBe(false);
+  });
+});
+
+describe("handler installation", () => {
+  it("refreshes an existing handler bundle instead of trusting one sentinel", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "emcp-handler-sync-"));
+    try {
+      const syncClient = new WorkbenchClient("127.0.0.1", 1);
+      const install = (syncClient as unknown as {
+        installHandlerScripts(modDir: string): void;
+      }).installHandlerScripts.bind(syncClient);
+
+      install(tempRoot);
+      const handlerDir = join(tempRoot, "Scripts", "WorkbenchGame", "EnfusionMCP");
+      const pingPath = join(handlerDir, "EMCP_WB_Ping.c");
+      writeFileSync(pingPath, "stale sentinel", "utf-8");
+
+      install(tempRoot);
+
+      expect(readFileSync(pingPath, "utf-8")).not.toBe("stale sentinel");
+      expect(readFileSync(join(handlerDir, "EMCP_WB_GetCameraPos.c"), "utf-8"))
+        .toContain("EMCP_WB_GetCameraPos");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
 

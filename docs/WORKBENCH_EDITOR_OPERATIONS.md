@@ -1,9 +1,11 @@
 # Bifrost Workbench Editor Operations Manual
 
-Version: 2026-08-22  
-Applies to: Arma Reforger Workbench / Bifrost MCP `0.13.0-bifrost.1`
+Version: 2026-09-05
+Applies to: Arma Reforger Workbench / Bifrost MCP `0.14.0-bifrost.1`
 
 This is Bifrost's first-party reference for Workbench integration. It records what the engine exposes, what Bifrost can automate, the expected outcome of each operation, and where an apparent operation is not backed by a public API.
+
+See [Codex Workbench workflow](CODEX_WORKBENCH.md) for `wb_capabilities`, ordered `wb_batch` calls, structured outcomes, and project source search/paging/exact edits. Capabilities distinguish configured defaults from the actual live project.
 
 ## Evidence policy
 
@@ -28,7 +30,7 @@ All editor modules inherit `WBModuleDef`.
 | `action=save` | `Save()` | Current module content saves | Module refused or has no saveable state |
 | `action=executeAction` | `ExecuteAction(path, keepFocus)` | Exact module-local menu action executes | Unknown path, unavailable action, or wrong context |
 
-`keepFocus` defaults to `false`, so agent work does not capture the user's foreground window. A returned `false` is an error; Bifrost never presents it as success.
+`keepFocus` defaults to `false` for editor-local actions, but the engine's open-module and open-resource calls provide no focus-control parameter. Those operations, plus arbitrary menu actions, therefore require `allowForeground: true`; callers cannot activate them accidentally during background work. Script compile/reload menu paths are always rejected inside custom handlers and route through `wb_validate_scripts` or `wb_reload`. A returned `false` is an error; Bifrost never presents it as success.
 
 New `NetApiHandler` class names register when Workbench starts. Editing an existing handler can be reloaded; adding `EMCP_WB_EditorModule` requires one restart of the existing Workbench before first use. Bifrost never launches a duplicate instance to force this.
 
@@ -67,11 +69,13 @@ Public surface: current file/line, line count, line read/write/insert/remove, op
 Supported operations:
 
 - `wb_script_editor getCurrentFile|getLinesCount|getLine|setLine|insertLine|removeLine|openFile`.
-- `wb_reload` reloads existing scripts and correlates the new log segment.
+- `wb_reload` uses Workbench 1.8's native `ReloadScripts` endpoint, then requires both a new compile marker and handlers returning. The native request may disconnect or time out while Workbench rebuilds the module; neither transport outcome is success until both confirmation signals arrive. It never reloads scripts inside a custom NET API reply and has no window, focus, or UI Automation dependency. Plugin-only reload remains in the custom handler because it does not tear down that handler's script module.
 - `wb_validate_scripts` calls native `ValidateScripts` with a 60-second budget.
 - `wb_compile_status` reads bounded compile history without changing/focusing Workbench.
 
 Engine behavior: line indices are zero-based; each text edit creates its own undo step; a new handler class name needs one Workbench restart; a reload timeout returns diagnostics and never launches another Workbench.
+
+The MCP Script Editor schema now explicitly uses zero-based indices and preserves the handler's `currentFile`, `lineText`, and `linesCount` response fields. Disk-source `project read` uses one-based display lines.
 
 Reviewed shipped plugins include autocomplete, formatting, class rename, new-script creation, Doxygen filler, templates, and autotest execution.
 
@@ -80,6 +84,8 @@ Reviewed shipped plugins include autocomplete, formatting, class rename, new-scr
 Public surface: `WorldEditor` and `WorldEditorAPI` (84 indexed methods), plus common module control. Packed source contains 61 World Editor scripts/tools.
 
 Supported families include entities, components, layers, terrain, scenarios, prefabs, project state, play/edit state, and common editor control. Related entity mutations are wrapped with `BeginEntityAction()` / `EndEntityAction()` so the editor remains consistent and undo/redo treats them as one batch.
+
+`wb_prefabs locate` scans local source files on the MCP host with explicit bounds and partial-coverage markers. It does not call shipped `LocatePrefabsFromPath`, whose `FileIO.FindFiles` can block Workbench behind a script authorization dialog. `getGuid` uses the verified `prefabPath` parameter. `wb_projects list` recognizes the native `Loaded Projects` response; `locate` sends an absolute `path` and handles a project root's trailing separator.
 
 Reviewed tool families include coordinates, forests, ground manipulation, lakes, navmesh, object brush, parallel shapes, power lines, prefab generation/management, rivers, roads, rotation, shape areas, terrain creation, vectors, and walls. These names are not assumed to be menu paths; a live action is exposed only after its exact path and result are verified.
 
@@ -151,6 +157,7 @@ Bifrost supports open/state/resource/save/action control but does not fabricate 
 - Existing Workbench is reused; no duplicate/headless instance is created.
 - Editor actions default `keepFocus=false`.
 - Handler error responses become MCP errors.
+- Uppercase native `ERROR`, blocked mode guards, and unconfirmed save timeouts are errors too; common tools include structured engine data and outcomes.
 - Destructive global menu paths stay blocked.
 - Generated assets use contained paths, validated identifiers/references, parse-before-write, and no overwrite by default.
 - MCP registration uses direct Node plus the built server—no `cmd /c` or `npx` wrapper.

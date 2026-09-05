@@ -14,7 +14,7 @@ import { Socket } from "node:net";
 import { existsSync, mkdirSync, copyFileSync, readdirSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn, execSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { encodeRequest, decodeResponse } from "./protocol.js";
 import { logger } from "../utils/logger.js";
 import type { Config } from "../config.js";
@@ -31,8 +31,6 @@ const WORKBENCH_SUBDIR = "Workbench";
 const HANDLER_FOLDER = "EnfusionMCP";
 const LAUNCH_POLL_INTERVAL_MS = 3_000;
 const LAUNCH_TIMEOUT_MS = 90_000;
-/** Delay after killing Workbench before relaunching, to let the port release. */
-const KILL_SETTLE_MS = 3_000;
 /** How long to wait for Workbench to recompile handler scripts after installation. */
 const HANDLER_RECOMPILE_TIMEOUT_MS = 30_000;
 /** Interval between polls while waiting for handler script recompilation. */
@@ -45,7 +43,7 @@ export const PLAY_CONFIRM_TIMEOUT_MS = 8_000;
 /** Interval between GetState polls while confirming a play-mode transition. */
 export const PLAY_CONFIRM_POLL_MS = 1_000;
 /** wb_reload confirm-poll budget — waits this long for handlers to recompile and respond. */
-export const RELOAD_CONFIRM_TIMEOUT_MS = 30_000;
+export const RELOAD_CONFIRM_TIMEOUT_MS = 120_000;
 /** Interval between ping polls while confirming a reload finished. */
 export const RELOAD_CONFIRM_POLL_MS = 1_000;
 
@@ -232,7 +230,7 @@ export class WorkbenchClient {
 
     if (!options.tolerateErrorStatus) {
       const response = result as unknown as Record<string, unknown> | null;
-      if (response && response.status === "error") {
+      if (response && typeof response.status === "string" && response.status.toLowerCase() === "error") {
         const message =
           typeof response.message === "string" && response.message.trim()
             ? response.message
@@ -528,8 +526,12 @@ export class WorkbenchClient {
       } else if (mode === "play" || mode === "game") {
         // Scripts return "game" when in play mode (WorldEditorAPI unavailable)
         this._state.mode = "play";
+      } else if (mode === "no_world" || mode === "no_world_editor" || mode === "unavailable") {
+        // These states are connected but cannot safely satisfy either mode guard.
+        // Clear a previously cached edit/play value instead of leaving it stale.
+        this._state.mode = "unknown";
       }
-      // "no_world_editor" and unrecognised values leave mode as-is (stays "unknown")
+      // Other unrecognised values leave mode as-is.
     }
   }
 
@@ -550,10 +552,10 @@ export class WorkbenchClient {
     // Inject into the currently-open mod (same logic as launchWorkbench).
     const recoveryGproj = this.findFallbackGproj();
     if (recoveryGproj) {
-      this.installHandlerScripts(dirname(recoveryGproj), true);
+      this.installHandlerScripts(dirname(recoveryGproj));
       this.cleanupStandaloneAddon();
     } else {
-      this.installHandlerScripts(undefined, true);
+      this.installHandlerScripts();
     }
 
     // Wait for Workbench to detect the new files and recompile scripts.
@@ -576,19 +578,6 @@ export class WorkbenchClient {
         `Workbench (Plugins > Reload Scripts) or restart Workbench.`,
       "LAUNCH_FAILED"
     );
-  }
-
-  /**
-   * Kill any running Workbench process. Windows-only (taskkill).
-   * Safe to call even if Workbench isn't running.
-   */
-  private killWorkbench(): void {
-    try {
-      execSync(`taskkill /IM ${WORKBENCH_EXE} /F`, { stdio: "ignore" });
-      logger.info("Killed running Workbench process.");
-    } catch {
-      // Process might not be running — ignore
-    }
   }
 
   private async launchWorkbench(gprojPath?: string): Promise<void> {
@@ -666,6 +655,7 @@ export class WorkbenchClient {
     logger.info(`Launching Workbench: ${exePath}${args.length ? ` ${args.join(" ")}` : ""} (cwd: ${cwd})`);
     const proc = spawn(exePath, args, {
       detached: true,
+      windowsHide: true,
       stdio: "ignore",
       cwd,
     });
@@ -828,7 +818,7 @@ export class WorkbenchClient {
    * Copy handler scripts into a mod directory so they compile as part of that mod.
    * If no modDir given, installs to default project path (standalone, less useful).
    */
-  private installHandlerScripts(modDir?: string, force = false): void {
+  private installHandlerScripts(modDir?: string): void {
     const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
     const bundledDir = join(packageRoot, "mod", "Scripts", "WorkbenchGame", HANDLER_FOLDER);
     if (!existsSync(bundledDir)) {
@@ -845,12 +835,8 @@ export class WorkbenchClient {
     const targetBase = modDir || join(fallbackBase!, HANDLER_FOLDER);
     const targetScriptsDir = join(targetBase, "Scripts", "WorkbenchGame", HANDLER_FOLDER);
 
-    // Already installed? Skip unless force-reinstalling (e.g. recovery after missing handlers)
-    if (!force && existsSync(join(targetScriptsDir, "EMCP_WB_Ping.c"))) {
-      return;
-    }
-
-
+    // These files are managed runtime artifacts. Always refresh the complete
+    // bundle so an existing sentinel cannot strand an addon on older handlers.
     logger.info(`Installing handler scripts to ${targetScriptsDir}`);
     mkdirSync(targetScriptsDir, { recursive: true });
 

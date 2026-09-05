@@ -8,7 +8,7 @@ const TEXT_ACTIONS = new Set(["setLine", "insertLine"]);
 const scriptEditorTool = defineWorkbenchTool({
   name: "wb_script_editor",
   description:
-    "Interact with the Workbench Script Editor. Get the current file, read/write individual lines, insert new lines, remove lines, or get the total line count.",
+    "Interact with the Workbench Script Editor. Get the current file, read/write individual lines, insert or remove lines, or get the line count. Opening a file can activate Workbench and requires explicit allowForeground permission.",
   inputSchema: {
     action: z
       .enum(["getCurrentFile", "getLine", "setLine", "insertLine", "removeLine", "getLinesCount", "openFile"])
@@ -17,8 +17,10 @@ const scriptEditorTool = defineWorkbenchTool({
       ),
     line: z
       .number()
+      .int()
+      .min(0)
       .optional()
-      .describe("Line number (1-based). Required for getLine, setLine, insertLine, removeLine."),
+      .describe("Zero-based engine line index (0 is the first line). Required for getLine, setLine, insertLine, removeLine. project read uses 1-based display lines."),
     text: z
       .string()
       .optional()
@@ -27,8 +29,13 @@ const scriptEditorTool = defineWorkbenchTool({
       .string()
       .optional()
       .describe("File path for openFile action (e.g., 'Scripts/Game/MyScript.c')"),
+    allowForeground: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("Required acknowledgement for openFile because it can activate the Script Editor window."),
   },
-  validate: ({ action, line, text, path }) => {
+  validate: ({ action, line, text, path, allowForeground }) => {
     if (LINE_ACTIONS.has(action) && line === undefined) {
       return `Error: \`line\` number is required for the "${action}" action.`;
     }
@@ -37,6 +44,9 @@ const scriptEditorTool = defineWorkbenchTool({
     }
     if (action === "openFile" && !path) {
       return `Error: \`path\` is required for the "openFile" action.`;
+    }
+    if (action === "openFile" && allowForeground !== true) {
+      return "Error: opening a script can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.";
     }
     return null;
   },
@@ -53,12 +63,12 @@ const scriptEditorTool = defineWorkbenchTool({
     const { action, line, text, path } = input;
 
     if (action === "getCurrentFile") {
-      const filePath = result.path || result.file || "(no file open)";
+      const filePath = result.currentFile || result.path || result.file || "(no file open)";
       return { text: `**Current Script File:** ${filePath}` };
     }
 
     if (action === "getLine") {
-      const lineText = result.text ?? result.content ?? "";
+      const lineText = result.lineText ?? result.text ?? result.content ?? "";
       return { text: `**Line ${line}:**\n\`\`\`\n${lineText}\n\`\`\`` };
     }
 

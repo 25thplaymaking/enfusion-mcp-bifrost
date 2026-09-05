@@ -18,6 +18,7 @@ export interface CompileDiagnostic {
 export interface CompileLogReport {
   logPath: string | null;
   sawCompile: boolean;
+  sawWorkbenchGameModule: boolean;
   failed: boolean;
   diagnostics: CompileDiagnostic[];
   truncated: boolean;
@@ -70,10 +71,14 @@ export function parseCompileLog(text: string, logPath: string | null = null, tru
   const seen = new Set<string>();
   let failed = false;
   let sawCompile = false;
+  let sawWorkbenchGameModule = false;
 
   for (const lineText of text.split(/\r?\n/)) {
     if (/\b(?:Compiling|Reloading)\s+(?:GameLib|Game|Workbench)\s+scripts\b/i.test(lineText)) {
       sawCompile = true;
+    }
+    if (/\bModule:\s+WorkbenchGame;\s+loaded\b/i.test(lineText)) {
+      sawWorkbenchGameModule = true;
     }
     if (/Can't compile\s+"[^"]+"\s+script module|script compilation failed/i.test(lineText)) {
       failed = true;
@@ -109,7 +114,7 @@ export function parseCompileLog(text: string, logPath: string | null = null, tru
     }
   }
 
-  return { logPath, sawCompile, failed, diagnostics, truncated };
+  return { logPath, sawCompile, sawWorkbenchGameModule, failed, diagnostics, truncated };
 }
 
 /** Read only the log bytes written since a cursor, following Workbench log rotation. */

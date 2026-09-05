@@ -1,8 +1,11 @@
 /**
- * EMCP_WB_Reload.c - Script and plugin reload handler
+ * EMCP_WB_Reload.c - Plugin-only reload handler
  *
- * Triggers script compilation via ScriptEditor module.
- * Called via NET API TCP protocol: APIFunc = "EMCP_WB_Reload"
+ * Script reload is intentionally not exposed through NetApiHandler. Reloading
+ * the WorkbenchGame module before NET API serializes GetResponse keeps the
+ * handler, request, and response alive across teardown and triggers the engine's
+ * resource-leak assertion. The MCP uses the engine's native reload handler
+ * instead, after any custom NET API transaction has ended.
  */
 
 class EMCP_WB_ReloadRequest : JsonApiStruct
@@ -38,93 +41,33 @@ class EMCP_WB_Reload : NetApiHandler
 	{
 		EMCP_WB_ReloadRequest req = EMCP_WB_ReloadRequest.Cast(request);
 		EMCP_WB_ReloadResponse resp = new EMCP_WB_ReloadResponse();
-
-		string target = req.target;
-		if (target == "")
-			target = "scripts";
-
-		array<string> results = {};
-
-		if (target == "scripts" || target == "both")
+		if (req.target != "plugins")
 		{
-			ScriptEditor scriptEditor = Workbench.GetModule(ScriptEditor);
-			if (scriptEditor)
-			{
-				// Try known menu paths for script compilation in ScriptEditor
-				array<string> menuPath = {};
-				bool compiled = false;
-
-				// Try "Script, Compile" first
-				menuPath.Insert("Script");
-				menuPath.Insert("Compile");
-				compiled = scriptEditor.ExecuteAction(menuPath);
-
-				if (!compiled)
-				{
-					// Try "Build, Compile All"
-					menuPath.Clear();
-					menuPath.Insert("Build");
-					menuPath.Insert("Compile All");
-					compiled = scriptEditor.ExecuteAction(menuPath);
-				}
-
-				if (!compiled)
-				{
-					// Try "Script, Compile All"
-					menuPath.Clear();
-					menuPath.Insert("Script");
-					menuPath.Insert("Compile All");
-					compiled = scriptEditor.ExecuteAction(menuPath);
-				}
-
-				if (!compiled)
-				{
-					// Try via WorldEditor as fallback
-					WorldEditor worldEditor = Workbench.GetModule(WorldEditor);
-					if (worldEditor)
-					{
-						menuPath.Clear();
-						menuPath.Insert("Plugins");
-						menuPath.Insert("Reload Scripts");
-						compiled = worldEditor.ExecuteAction(menuPath);
-					}
-				}
-
-				results.Insert("Scripts: compilation triggered (ExecuteAction=" + compiled.ToString() + ")");
-			}
-			else
-			{
-				results.Insert("Scripts: ScriptEditor module not available");
-			}
+			resp.status = "error";
+			resp.message = "Script reload must be triggered outside NET API; this handler supports plugins only";
+			return resp;
 		}
 
-		if (target == "plugins" || target == "both")
+		ResourceManager resourceManager = Workbench.GetModule(ResourceManager);
+		if (!resourceManager)
 		{
-			ResourceManager resMgr = Workbench.GetModule(ResourceManager);
-			if (resMgr)
-			{
-				array<string> menuPath = {};
-				menuPath.Insert("Plugins");
-				menuPath.Insert("Reload");
-				bool result = resMgr.ExecuteAction(menuPath);
-				results.Insert("Plugins: reload triggered (ExecuteAction=" + result.ToString() + ")");
-			}
-			else
-			{
-				results.Insert("Plugins: ResourceManager module not available");
-			}
+			resp.status = "error";
+			resp.message = "ResourceManager module not available";
+			return resp;
+		}
+
+		array<string> menuPath = {};
+		menuPath.Insert("Plugins");
+		menuPath.Insert("Reload");
+		if (!resourceManager.ExecuteAction(menuPath, false))
+		{
+			resp.status = "error";
+			resp.message = "Resource Manager did not accept the plugin reload action";
+			return resp;
 		}
 
 		resp.status = "ok";
-		string msg = "";
-		for (int i = 0; i < results.Count(); i++)
-		{
-			if (i > 0)
-				msg = msg + " | ";
-			msg = msg + results[i];
-		}
-		resp.message = msg;
-
+		resp.message = "Plugins: reload action accepted";
 		return resp;
 	}
 }

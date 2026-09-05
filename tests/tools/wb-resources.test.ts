@@ -10,6 +10,12 @@ describe("wb_resources — exported data seam", () => {
 });
 
 describe("wb_resources — requireMode + modeAction", () => {
+  it("requires explicit foreground permission only when opening a resource", () => {
+    expect(t.validate!({ action: "open", path: "P.et" })).toContain("can activate Workbench");
+    expect(t.validate!({ action: "open", path: "P.et", allowForeground: true })).toBeNull();
+    expect(t.validate!({ action: "getInfo", path: "P.et" })).toBeNull();
+  });
+
   it("requires edit mode only for register/rebuild", () => {
     expect(t.requireMode!({ action: "register" })).toBe("edit");
     expect(t.requireMode!({ action: "rebuild" })).toBe("edit");

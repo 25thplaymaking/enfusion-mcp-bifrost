@@ -1,223 +1,170 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { relative, extname } from "node:path";
-import { readFileSync, existsSync, writeFileSync, mkdirSync, statSync } from "node:fs";
-import { dirname } from "node:path";
+import { relative, extname, dirname, join } from "node:path";
+import { readFileSync, existsSync, writeFileSync, mkdirSync, statSync, lstatSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import type { Config } from "../config.js";
 import { validateProjectPath } from "../utils/safe-path.js";
 import { listDirectory, formatSize } from "../utils/dir-listing.js";
 
-/** Extensions safe to read as text. Mirrors game_read's list. */
-const TEXT_EXTENSIONS = new Set([
-  ".c", ".et", ".conf", ".gproj", ".ent", ".layer", ".st",
-  ".layout", ".txt", ".json", ".xml", ".csv", ".md",
+export const PROJECT_TEXT_EXTENSIONS = new Set([
+  ".c", ".et", ".conf", ".gproj", ".ent", ".layer", ".st", ".layout",
+  ".txt", ".json", ".xml", ".csv", ".md", ".meta", ".emat",
+  ".acp", ".ptc", ".pap", ".siga", ".agr", ".ast", ".agf", ".asi", ".aw",
 ]);
+const MAX_FILE_BYTES = 16 * 1024 * 1024;
+const MAX_OUTPUT_BYTES = 512_000;
+const hash = (content: string) => createHash("sha256").update(content, "utf8").digest("hex");
 
-/** Upper bound on a single read, matching game_read's 500 KB ceiling. */
-const MAX_READ_BYTES = 512_000;
+export const projectSchema = {
+  action: z.enum(["browse", "read", "search", "write", "edit"]),
+  path: z.string().optional().describe("Relative file or directory inside projectPath; required for read/write/edit."),
+  projectPath: z.string().optional().describe("Absolute intended project root. Configured root is used if omitted, not necessarily the live addon."),
+  pattern: z.string().optional().describe("browse/search extension filter, e.g. '*.c'."),
+  content: z.string().max(MAX_FILE_BYTES).optional().describe("write: complete UTF-8 file content."),
+  createDirectories: z.boolean().default(true),
+  startLine: z.number().int().min(1).optional().describe("read: first line, 1-based; enables bounded reads of large files."),
+  maxLines: z.number().int().min(1).max(2000).optional().describe("read: maximum lines; defaults to 200 with startLine."),
+  query: z.string().min(1).max(1000).optional().describe("search: literal text, not a regular expression."),
+  caseSensitive: z.boolean().default(false),
+  maxResults: z.number().int().min(1).max(200).default(50),
+  oldText: z.string().min(1).max(MAX_FILE_BYTES).optional().describe("edit: exact text to replace; requires exactly expectedMatches occurrences."),
+  newText: z.string().max(MAX_FILE_BYTES).optional().describe("edit: replacement, which may be empty."),
+  expectedMatches: z.number().int().min(1).max(10000).default(1),
+  expectedSha256: z.string().regex(/^[a-fA-F0-9]{64}$/).optional().describe("write/edit: refuse if existing content differs from this read-time hash."),
+  dryRun: z.boolean().default(false).describe("write/edit: validate and report without writing."),
+};
+type ProjectInput = z.infer<z.ZodObject<typeof projectSchema>>;
+
+// Descendant junctions must not redirect edits into another addon. The
+// explicitly selected root may itself be a junction.
+function projectFile(root: string, path: string): string {
+  const full = validateProjectPath(root, path);
+  let current = root;
+  for (const segment of relative(root, full).split(/[/\\]+/).filter(Boolean)) {
+    if (segment.includes(":")) throw new Error("Alternate data streams are not project files.");
+    current = join(current, segment);
+    try {
+      if (lstatSync(current).isSymbolicLink()) throw new Error("Cannot traverse a symlink/junction. Select its intended project root explicitly.");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+  }
+  return full;
+}
+
+function readText(full: string): string {
+  if (!PROJECT_TEXT_EXTENSIONS.has(extname(full).toLowerCase())) throw new Error("Binary or unsupported file type. Use resource/asset tools for binary files.");
+  const stat = statSync(full);
+  if (!stat.isFile()) throw new Error("Expected a file.");
+  if (stat.size > MAX_FILE_BYTES) throw new Error("File exceeds the 16 MiB source-file limit.");
+  const bytes = readFileSync(full);
+  if (bytes.includes(0)) throw new Error("Binary or UTF-16 content is not supported by UTF-8 project editing.");
+  return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+}
+
+export function runProjectTool(input: ProjectInput, config: Config) {
+  const base = input.projectPath || config.projectPath;
+  try {
+    if (!base) throw new Error("Provide projectPath or configure ENFUSION_PROJECT_PATH.");
+    if (["read", "write", "edit"].includes(input.action) && !input.path) throw new Error(`action='${input.action}' requires a 'path' parameter.`);
+    const full = projectFile(base, input.path ?? "");
+    const reply = (text: string, data: Record<string, unknown>) => ({
+      content: [{ type: "text" as const, text }],
+      structuredContent: { projectPath: base, path: input.path ?? ".", ...data },
+    });
+    if (input.action === "browse") {
+      const entries = listDirectory(full, input.pattern);
+      return reply([`Project: ${base}`, `Path: ${input.path || "(root)"}`, ...entries.map((entry) =>
+        entry.isDirectory ? `  ${entry.name}/` : `  ${entry.name} ${formatSize(entry.size)}`)].join("\n"), { entries });
+    }
+    if (input.action === "read") {
+      const content = readText(full);
+      const lines = content.split(/\r\n|\n|\r/);
+      const startLine = input.startLine ?? 1;
+      const ranged = input.startLine !== undefined || input.maxLines !== undefined;
+      if (startLine > lines.length) throw new Error(`startLine exceeds the file's ${lines.length} lines.`);
+      const endLine = ranged ? Math.min(lines.length, startLine - 1 + (input.maxLines ?? 200)) : lines.length;
+      const text = ranged ? lines.slice(startLine - 1, endLine).map((line, index) => `${startLine + index}: ${line}`).join("\n") : content;
+      if (Buffer.byteLength(text, "utf8") > MAX_OUTPUT_BYTES) throw new Error("Read exceeds the 512 KB output limit. Use startLine and a smaller maxLines.");
+      return reply(text, { sha256: hash(content), totalLines: lines.length, startLine, endLine,
+        nextLine: endLine < lines.length ? endLine + 1 : null, partial: ranged && (startLine > 1 || endLine < lines.length) });
+    }
+    if (input.action === "search") {
+      if (!input.query) throw new Error("search requires query.");
+      if (input.pattern && !/^\*?\.[A-Za-z0-9]+$/.test(input.pattern)) throw new Error("pattern must be an extension filter such as '*.c'.");
+      const extension = input.pattern?.replace(/^\*/, "").toLowerCase();
+      const needle = input.caseSensitive ? input.query : input.query.toLowerCase();
+      const matches: Array<{ path: string; line: number; text: string; textTruncated: boolean }> = [];
+      const skipped: Array<{ path: string; reason: string }> = [];
+      let filesScanned = 0, entriesVisited = 0, bytesScanned = 0;
+      let stopReason: string | null = null;
+      const visit = (directory: string, depth: number) => {
+        if (depth > 64) { stopReason = "directory_depth"; return; }
+        for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+          if (stopReason) return;
+          if (++entriesVisited > 10_000) { stopReason = "entry_budget"; return; }
+          if ([".git", "node_modules"].includes(entry.name)) continue;
+          const path = join(directory, entry.name);
+          if (entry.isSymbolicLink()) { skipped.push({ path: relative(base, path), reason: "symlink/junction" }); continue; }
+          if (entry.isDirectory()) { visit(path, depth + 1); continue; }
+          if (!entry.isFile() || !PROJECT_TEXT_EXTENSIONS.has(extname(path).toLowerCase())) continue;
+          if (extension && extname(path).toLowerCase() !== extension) continue;
+          if (filesScanned >= 2000) { stopReason = "file_budget"; return; }
+          try {
+            const size = statSync(path).size;
+            if (size > MAX_FILE_BYTES) { skipped.push({ path: relative(base, path), reason: "file_size" }); continue; }
+            if (bytesScanned + size > 32 * 1024 * 1024) { stopReason = "byte_budget"; return; }
+            const content = readText(path);
+            filesScanned++;
+            bytesScanned += size;
+            for (const [index, line] of content.split(/\r\n|\n|\r/).entries()) {
+              if (!(input.caseSensitive ? line : line.toLowerCase()).includes(needle)) continue;
+              matches.push({ path: relative(base, path), line: index + 1, text: line.slice(0, 1000), textTruncated: line.length > 1000 });
+              if (matches.length >= input.maxResults) { stopReason = "result_limit"; return; }
+            }
+          } catch (error) { skipped.push({ path: relative(base, path), reason: String(error) }); }
+        }
+      };
+      visit(full, 0);
+      const data = { matches, filesScanned, bytesScanned, partial: stopReason !== null || skipped.length > 0, stopReason, skipped: skipped.slice(0, 100), skippedCount: skipped.length };
+      return reply(JSON.stringify(data), data);
+    }
+    if (!PROJECT_TEXT_EXTENSIONS.has(extname(full).toLowerCase())) throw new Error("Only supported UTF-8 source files can be written or edited.");
+    const before = existsSync(full) ? readText(full) : null;
+    if (input.expectedSha256 && (before === null || hash(before) !== input.expectedSha256.toLowerCase())) throw new Error("File changed since the supplied SHA-256. Read it again before editing.");
+    let after: string;
+    let replacements = 0;
+    if (input.action === "write") {
+      if (input.content === undefined) throw new Error("write requires content.");
+      after = input.content;
+    } else {
+      if (before === null) throw new Error("edit requires an existing file.");
+      if (!input.oldText || input.newText === undefined) throw new Error("edit requires oldText and newText.");
+      const parts = before.split(input.oldText);
+      replacements = parts.length - 1;
+      if (replacements !== input.expectedMatches) throw new Error(`Expected ${input.expectedMatches} exact matches, found ${replacements}. No file was changed.`);
+      after = parts.join(input.newText);
+    }
+    if (after.includes("\0") || Buffer.byteLength(after, "utf8") > MAX_FILE_BYTES) throw new Error("Content must be text and no larger than 16 MiB.");
+    if (!input.dryRun) {
+      if (input.createDirectories) mkdirSync(dirname(full), { recursive: true });
+      writeFileSync(full, after, "utf8");
+    }
+    return reply(`${input.dryRun ? "Preview" : "File written"}: ${input.path} (${Buffer.byteLength(after, "utf8")} bytes)`, {
+      written: !input.dryRun, changed: before !== after, replacements,
+      beforeSha256: before === null ? null : hash(before), sha256: hash(after),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { content: [{ type: "text" as const, text: `Error: ${message}` }], isError: true,
+      structuredContent: { projectPath: base, outcome: "error", message } };
+  }
+}
 
 export function registerProject(server: McpServer, config: Config): void {
-  server.registerTool(
-    "project",
-    {
-      description:
-        "Browse, read, or write files in an Arma Reforger Workbench project directory. Use action='browse' to list files, action='read' to read a file, action='write' to write a file.",
-      inputSchema: {
-        action: z
-          .enum(["browse", "read", "write"])
-          .describe("Operation to perform: browse (list files), read (read a file), write (write a file)"),
-        path: z
-          .string()
-          .optional()
-          .describe(
-            "(browse) Subdirectory to list within the project (e.g., 'Scripts/Game', 'Prefabs'). Omit for project root. " +
-            "(read) Relative path within the project (e.g., 'Scripts/Game/MyScript.c', 'MyMod.gproj'). " +
-            "(write) Relative path within the project (e.g., 'Scripts/Game/MyScript.c')."
-          ),
-        pattern: z
-          .string()
-          .optional()
-          .describe("(browse) File extension filter (e.g., '*.c', '*.et')"),
-        content: z
-          .string()
-          .optional()
-          .describe("(write) File content to write"),
-        createDirectories: z
-          .boolean()
-          .optional()
-          .describe(
-            "(write) Create parent directories if they don't exist. Default: true."
-          ),
-        projectPath: z
-          .string()
-          .optional()
-          .describe(
-            "Absolute path to the project directory. Uses configured default if omitted."
-          ),
-      },
-    },
-    async ({ action, path: inputPath, pattern, content, createDirectories, projectPath }) => {
-      const basePath = projectPath || config.projectPath;
-
-      if (!basePath) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "No project path configured. Set ENFUSION_PROJECT_PATH environment variable or provide projectPath parameter.",
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      if (action === "browse") {
-        try {
-          const subPath = inputPath ?? "";
-          const targetPath = subPath
-            ? validateProjectPath(basePath, subPath)
-            : basePath;
-
-          const entries = listDirectory(targetPath, pattern);
-          const relPath = relative(basePath, targetPath) || ".";
-
-          const lines: string[] = [];
-          lines.push(`Project: ${basePath}`);
-          lines.push(`Path: ${relPath === "." ? "(root)" : relPath}`);
-          lines.push("");
-
-          let fileCount = 0;
-          let dirCount = 0;
-
-          for (const entry of entries) {
-            if (entry.isDirectory) {
-              lines.push(`  ${entry.name}/`);
-              dirCount++;
-            } else {
-              const typeTag = entry.type ? `[${entry.type}]` : "";
-              const sizeStr = formatSize(entry.size);
-              lines.push(
-                `  ${entry.name.padEnd(40)} ${typeTag.padEnd(12)} ${sizeStr}`
-              );
-              fileCount++;
-            }
-          }
-
-          lines.push("");
-          lines.push(`Total: ${fileCount} files, ${dirCount} directories`);
-
-          return { content: [{ type: "text", text: lines.join("\n") }] };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return {
-            content: [{ type: "text", text: `Error browsing project: ${msg}` }],
-            isError: true,
-          };
-        }
-      }
-
-      if (action === "read") {
-        if (!inputPath) {
-          return {
-            content: [{ type: "text", text: "action='read' requires a 'path' parameter." }],
-            isError: true,
-          };
-        }
-
-        try {
-          const fullPath = validateProjectPath(basePath, inputPath);
-
-          if (!existsSync(fullPath)) {
-            return {
-              content: [{ type: "text", text: `File not found: ${inputPath}` }],
-              isError: true,
-            };
-          }
-
-          // Guard binary and oversized files, matching game_read. Without this,
-          // reading a .xob/.edds returned megabytes of mojibake straight into
-          // context, and a large .c file could swamp it outright.
-          const ext = extname(fullPath).toLowerCase();
-          if (!TEXT_EXTENSIONS.has(ext)) {
-            return {
-              content: [{
-                type: "text",
-                text: `Binary or unsupported file type: ${inputPath} (${ext || "no extension"}). Only text files can be read (${[...TEXT_EXTENSIONS].join(", ")}).`,
-              }],
-              isError: true,
-            };
-          }
-
-          const size = statSync(fullPath).size;
-          if (size > MAX_READ_BYTES) {
-            return {
-              content: [{
-                type: "text",
-                text: `File too large: ${inputPath} is ${size.toLocaleString()} bytes (limit ${MAX_READ_BYTES.toLocaleString()}). Read it in parts with a more specific path, or open it directly.`,
-              }],
-              isError: true,
-            };
-          }
-
-          const fileContent = readFileSync(fullPath, "utf-8");
-          return {
-            content: [{ type: "text", text: fileContent }],
-          };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return {
-            content: [{ type: "text", text: `Error reading file: ${msg}` }],
-            isError: true,
-          };
-        }
-      }
-
-      if (action === "write") {
-        if (!inputPath) {
-          return {
-            content: [{ type: "text", text: "action='write' requires a 'path' parameter." }],
-            isError: true,
-          };
-        }
-        if (content === undefined) {
-          return {
-            content: [{ type: "text", text: "action='write' requires a 'content' parameter." }],
-            isError: true,
-          };
-        }
-
-        try {
-          const fullPath = validateProjectPath(basePath, inputPath);
-          const shouldCreateDirs = createDirectories !== false;
-
-          if (shouldCreateDirs) {
-            mkdirSync(dirname(fullPath), { recursive: true });
-          }
-
-          writeFileSync(fullPath, content, "utf-8");
-          const sizeBytes = Buffer.byteLength(content, "utf-8");
-
-          return {
-            content: [
-              {
-                type: "text",
-                text: `File written: ${inputPath} (${sizeBytes} bytes)`,
-              },
-            ],
-          };
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          return {
-            content: [{ type: "text", text: `Error writing file: ${msg}` }],
-            isError: true,
-          };
-        }
-      }
-
-      return {
-        content: [{ type: "text", text: `Unknown action: ${action}` }],
-        isError: true,
-      };
-    }
-  );
+  server.registerTool("project", {
+    description: "Browse, read, search, write, or precisely edit Workbench source files, including audio/particle/animation graphs, materials, metadata, scripts, layouts and configs. Reads return SHA-256; startLine/maxLines page large files. Search returns file/line matches with explicit partial-coverage markers. Edit replaces exact oldText only when expectedMatches agrees; expectedSha256 rejects stale edits. dryRun previews writes. Compilation and resource registration remain separate.",
+    inputSchema: projectSchema,
+  }, async (input) => runProjectTool(input, config));
 }

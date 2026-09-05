@@ -15,6 +15,16 @@ const config = loadConfig();
 const server = new McpServer({
   name: "bifrost-enfusion-mcp",
   version,
+}, {
+  instructions: "For Codex/Astra Workbench tasks, start with wb_capabilities (live=true when connected). " +
+    "Configured default folders are not live project identity: inspect loaded IDs and pass an explicit projectPath for authoring. " +
+    "Use project read/search/edit for all supported text source formats; read hashes support conflict-checked edits. " +
+    "Use wb_batch for ordered existing operations, inspecting structured per-step outcomes; it is not atomic. " +
+    "Read schemas: wb_script_editor lines are zero-based; project file lines are one-based. " +
+    "Use api_search, wiki_search/wiki_read, then game_read for engine evidence. " +
+    "Ordinary calls never launch Workbench. Existing user authorization can satisfy allowForeground without asking repeatedly. " +
+    "Use native wb_validate_scripts/wb_reload for compilation; never execute script reload from a custom handler menu. " +
+    "Graph source editing does not imply engine compilation or live multiplayer validation.",
 });
 
 registerTools(server, config);
