@@ -28,10 +28,10 @@ Ranked roughly by effort. Effort: S/M/L. "Where" = starting point in the code.
 - **13. Method signature validator tool** (M) — `script_check` taking class + method signature, returning the correct signature on close match. Pairs with fuzzy-search infra. New `src/tools/script-check.ts`.
 - **16. Compilation error feedback + log capture** (M) — parse Workbench compile errors (file/line/msg) after `wb_play`/`wb_reload`, auto-read the failing file; add a tool to read the Workbench script/runtime log. New `src/tools/wb-log.ts` + `mod/Scripts/WorkbenchGame/EnfusionMCP/EMCP_WB_GetLog.c`.
 - **17. Example code snippets in patterns** (M) — add `codeExamples` (3–15 line working snippets) to `data/patterns/*.json`, inject into the create-mod prompt. Requires Enfusion domain knowledge to write correctly.
-- **18. Common-pitfalls context injection** (M) — `data/pitfalls.json` of Enfusion gotchas (e.g. `EntityEvent.FRAME` needs `SetEventMask`), injected based on what's being created.
+- ~~**18. Common-pitfalls context injection**~~ — **DONE, differently.** Rather than a separate `data/pitfalls.json` injected at call time, each `data/kb/playbooks/*.md` carries its own **Traps** section, reached by `wb_playbook` before the task starts. That is strictly better than injection: the pitfalls arrive *before* the agent writes code rather than alongside a result.
 - **19. Validation-driven fix suggestions** (M) — extend `mod_validate` `ValidationIssue` with machine-actionable fix objects (`{fix:"move", from, to}`); optional `src/tools/mod-fix.ts` to apply them.
 - **20. Cross-index "used by" backlinks** (M) — reverse index in `SearchEngine` (parent/param/return/property type), surfaced as `usedBy` in `api_search` + class resource.
-- **21. MODPLAN as structured data** (M) — replace freeform `MODPLAN.md` with typed JSON/YAML + a `mod_plan` tool to query/advance phases. Used by both create/modify prompts.
+- **21. MODPLAN as structured data** (M) — replace freeform `MODPLAN.md` with typed JSON/YAML + a `mod_plan` tool to query/advance phases. Used by both create/modify prompts. *(Partly pre-empted: playbooks are the structured per-task plan, and `wb_playbook` retrieves them. A project-level plan across many tasks is still open.)*
 - **22. Incremental asset index** (M) — replace session-scoped `cachedIndex` in `asset-search.ts` with an on-disk, mtime-invalidated index so first search isn't a cold full-directory + `.pak` walk each session.
 - **23. Multi-mod workspace support** (M) — point config at `addons/` and accept a `modName` param per tool, instead of one `ENFUSION_PROJECT_PATH` addon. Touches `src/config.ts` + all tools using `config.projectPath`.
 - **24. Diff-based script patching** (M–L) — `script_patch`/`project_patch` accepting a diff (and, as a stretch, structure-aware edits: add/modify method, add member) so the LLM stops re-emitting whole files. Reuses parsing in `src/templates/script.ts`.
@@ -40,3 +40,36 @@ Ranked roughly by effort. Effort: S/M/L. "Where" = starting point in the code.
 
 ### Data-quality context (why several ideas above matter)
 From the original audit: ~85% of Arma class briefs empty, ~88% of method descriptions empty, 0 scraped enum values, `hierarchy.json` empty, wiki search truncated at 2K chars (avg page ~8.7K). Sparse context = high hallucination surface, which most "hallucination prevention" ideas target.
+
+## Closed 2026-10-02 — documentation and agent-routing work
+
+- **The KB index drift bug is fixed.** `data/kb/index.json` was hand-maintained and
+  had rotted: eight animation documents (170 KB) were unindexed and therefore
+  unreachable through `wb_knowledge`, because the loader resolves every hit through
+  the index. All three indexes are now generated (`npm run kb:index`,
+  `playbooks:index`, `agent:index`) with `--check` drift guards in the test suite.
+- **The README advertised five tools that do not exist** (`mod_create`,
+  `mod_build`, `mod_validate`, `prefab_create`, `prefab_inspect`). `tests/tools/
+  doc-integrity.test.ts` now fails if the docs and the registered tools disagree.
+- **`wb_playbook` shipped** — 13 task-oriented playbooks. See STATUS.md.
+
+## Open after the 2026-10-11 agent-friction sweep
+
+- **Live-verify the lifecycle changes** in a focused Workbench: `wb_stop` in edit
+  mode (expect "Already in Edit Mode"), `wb_stop` + `wb_reload` + `wb_play` issued
+  in parallel (expect them to run in order, reload "Reload Complete"), and a
+  reload during play start (expect "Reload Refused — no compile ran").
+- **Re-test SF prefab placement** with `wb_entity_create` using the corrected
+  prefab GUIDs (`{8D43830F02C3F114}...SlotAI.et` etc.). The KB's old "cannot place
+  SF prefabs" note was based on component IDs.
+- **Native-only classes keep Doxygen inheritance.** `repair-script-inheritance.ts`
+  only fixes classes with a `class X : Y` in the game scripts; pure native classes
+  (no script declaration) still use the scraped parents.
+- **Local re-scrape is broken**: `src/scraper/source-local.ts` expects
+  `Workbench/docs/*.zip`, but the installed tools ship the API docs as folders
+  (`Workbench/docs/ArmaReforgerScriptAPIPublic/`).
+- **TFH Armory's offline wiki** (team server, `search_bi`/`read_bi_page`) is as
+  stale as ours was (no *Creating a User Action*) and stores flattened text. The
+  Markdown capture from `scripts/capture-wiki.browser.js` could feed it.
+- `conflict-scenario-setup.md` still documents mod-only prefabs in its examples
+  (now labelled). A vanilla-only Conflict walkthrough would be cleaner.

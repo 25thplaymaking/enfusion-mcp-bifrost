@@ -17,6 +17,8 @@ const server = new McpServer({
   version,
 }, {
   instructions: "For Codex/Astra Workbench tasks, start with wb_capabilities (live=true when connected). " +
+    "Call wb_playbook BEFORE starting an authoring task (layout, menu, script, prefab, model import, animation, particles, terrain): it returns the preconditions, the ordered tool calls, the traps, and the verification. " +
+    "Use wb_knowledge for engine facts and API detail ('what does X do'); use wb_playbook for task procedure ('how do I do X'). " +
     "Configured default folders are not live project identity: inspect loaded IDs and pass an explicit projectPath for authoring. " +
     "Use project read/search/edit for all supported text source formats; read hashes support conflict-checked edits. " +
     "Use wb_bridge to install/update handlers in the verified loaded addon without launching. Read/deploy local workflow documentation with wb_docs. " +
@@ -26,7 +28,7 @@ const server = new McpServer({
     "Use wb_batch for ordered existing operations, inspecting structured per-step outcomes; it is not atomic. " +
     "Read schemas: wb_script_editor lines are zero-based; project file lines are one-based. " +
     "Use api_search, wiki_search/wiki_read, then game_read for engine evidence. " +
-    "Ordinary calls never launch Workbench. Existing user authorization can satisfy allowForeground without asking repeatedly. " +
+    "Ordinary calls never launch Workbench. Foreground-activating operations (open/openResource/executeAction/openFile) accept a per-call allowForeground:true, or a standing ENFUSION_ALLOW_FOREGROUND=1 server flag so no per-call acknowledgement is needed. " +
     "Use native wb_validate_scripts/wb_reload for compilation; never execute script reload from a custom handler menu. " +
     "Graph source editing does not imply engine compilation or live multiplayer validation.",
 });

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 export const moduleNames = [
   "resourceManager",
@@ -68,7 +69,7 @@ const editorModuleTool = defineWorkbenchTool({
     ) {
       return "Error: script compile/reload cannot run inside a custom NET API reply. Use `wb_validate_scripts` or `wb_reload` instead.";
     }
-    if ((action === "open" || action === "close" || action === "openResource" || action === "executeAction") && allowForeground !== true) {
+    if ((action === "open" || action === "close" || action === "openResource" || action === "executeAction") && allowForeground !== true && !foregroundAuthorized()) {
       return "Error: this action can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.";
     }
     return null;

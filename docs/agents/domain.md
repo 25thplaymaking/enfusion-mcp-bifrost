@@ -2,6 +2,17 @@
 
 How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
+## Start with the playbooks
+
+Before planning any Enfusion authoring work, call `wb_playbook` with the task
+in your own words (`{"query":"catalogue"}` lists all 19). Each playbook carries
+preconditions, the ordered tool calls, the traps that fail *silently*, and a
+verification checklist. `wb_knowledge` is the subject-oriented complement.
+
+Both tools are `wb_`-prefixed and fully offline — they make no Workbench call, so
+they are available in any session, connected or not. The generated
+`AGENT_TOOLS.md` lists which of the 63 tools are offline.
+
 ## Before exploring, read these
 
 - **`CONTEXT.md`** at the repo root, or

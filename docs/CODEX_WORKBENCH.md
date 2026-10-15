@@ -2,6 +2,32 @@
 
 This server exposes the same capabilities to all MCP clients. There is no model-name allowlist, separate Astra daemon, or extra permission service.
 
+## Start here: `wb_playbook`, not memory
+
+Before authoring anything, call the playbook tool with the task in your own
+words:
+
+```
+wb_playbook {"query": "import a model from blender"}   # -> preconditions,
+                                                          #    ordered tool calls,
+                                                          #    silent-failure traps,
+                                                          #    verification
+wb_playbook {"query": "catalogue"}                      # all 19
+```
+
+This is not ceremony. The expensive Enfusion failures are **silent**: a menu that
+opens onto a missing layout, a placeable prefab with no root `ID` that kicks the
+placing client, an animation variable bound every frame instead of once, a terrain
+import that keeps the right *shape* while every absolute height is wrong. The
+playbooks front-load the preconditions that catch them.
+
+Use `wb_knowledge` for engine facts and API detail once you know the task.
+
+**`wb_knowledge` and `wb_playbook` are `wb_`-prefixed but fully offline** — they
+make no Workbench call. Do not assume a `wb_` tool needs a running editor; only 37
+of the 63 tools actually use the bridge. `AGENT_TOOLS.md` (generated) lists which.
+
+
 ## Start with evidence
 
 Call `wb_capabilities` with `live=true`. It reports the configured project root/default separately from actual loaded addon IDs, world state, and the ten supported editor module probes. A default folder is not evidence of the loaded project. Module availability does not mean a resource is open or an operation was tested.
@@ -54,7 +80,7 @@ World, script, resource, and localization operations use their existing dedicate
 
 No public live graph-node editing API is invented. Behavior graph generation, general terrain sculpting, and navmesh generation remain explicit coverage gaps. `wb_capabilities` reports these limits. Graph source edits must still pass appropriate format/engine validation. Workbench compilation does not establish in-game or multiplayer behavior.
 
-Foreground-sensitive opens/actions require `allowForeground=true` when the user has authorized window activity. Existing authorization is sufficient; callers need not ask the same question again. Ordinary discovery and source work remain in the background. Native `wb_validate_scripts` / `wb_reload` preserve the safe compile lifecycle.
+Foreground-sensitive opens/actions require `allowForeground=true` when the user has authorized window activity. Set `ENFUSION_ALLOW_FOREGROUND=1` in the server environment to make that authorization standing, so per-call `allowForeground: true` is no longer needed. Existing authorization is sufficient; callers need not ask the same question again. Ordinary discovery and source work remain in the background. Native `wb_validate_scripts` / `wb_reload` preserve the safe compile lifecycle.
 
 ## Codex registration and updates
 

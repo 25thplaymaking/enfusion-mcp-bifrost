@@ -392,3 +392,13 @@ IsSightActive() / SetSightForcedOff(bool)   // force off only, not force on
 EnableManualBrightness(bool) / SetManualBrightness(float, bool bClamp)
 GetNormalizedLightIntensity() → 0..1        // for auto-brightness
 ```
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- `BaseMagazineComponent` has no setter for maximum capacity; capacity variants need their own
+  authored magazine prefabs. A turret reload (`DoReloadWeaponWith`) needs a compatible magazine
+  entity already in the inventory.

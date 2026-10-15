@@ -467,3 +467,12 @@ Legacy system. New work should prefer AGF `ProcTransform` nodes. PAP is still ne
 | `Sight` frame count mismatch | Must equal number of zeroing modes in weapon config |
 | PAP signal ordering wrong | Create `.siga` inputs in exact call order |
 | Duplicate node names in sheet | Names are case-sensitive, must be unique per sheet |
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- The loaded character belt slot is `ZEL_WaistArea` under the native `Waist` slot, not
+  trousers; classify belts by it.

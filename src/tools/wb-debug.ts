@@ -4,6 +4,7 @@ import { closeSync, existsSync, lstatSync, openSync, readSync, readdirSync, stat
 import { join } from "node:path";
 import type { Config } from "../config.js";
 import type { WorkbenchClient } from "../workbench/client.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 const logNames = ["script.log", "console.log", "error.log"] as const;
 export const DEBUG_CONTROLS = {
@@ -86,7 +87,7 @@ export function registerWbDebug(server: McpServer, config: Config, client: Workb
         return reply({ source, runtimeLog: readRuntimeLog(config.workbenchProfile, log, cursor, maxLines),
           debugger: { attached: "unobserved", paused: "unobserved", stack: "Read Callstack pane via computer use", watches: "Read Watch pane via computer use" } });
       }
-      if (!allowForeground) throw new Error("Editor navigation/control requires allowForeground=true under existing user authorization.");
+      if (!allowForeground && !foregroundAuthorized()) throw new Error("Editor navigation/control requires allowForeground=true under existing user authorization.");
       if (action === "togglePanel") {
         if (!panel) throw new Error("togglePanel requires panel.");
         await client.call("EMCP_WB_EditorModule", { module: "scriptEditor", action: "open" });

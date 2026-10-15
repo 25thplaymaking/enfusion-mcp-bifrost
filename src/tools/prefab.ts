@@ -78,7 +78,7 @@ export function registerPrefab(server: McpServer, config: Config): void {
         "Create or inspect Arma Reforger prefab (.et) files.\n\n" +
         "action=create: Create a new Entity Template (.et) prefab file for an Arma Reforger mod. Generates a properly structured prefab with components in valid Enfusion text serialization format. " +
         "When parentPrefab is provided, automatically resolves the full ancestor chain and pre-populates inherited components (set includeAncestry=false to skip). " +
-        "IMPORTANT: For 'interactive' and other visible prefabs, the MeshObject component MUST have its 'Object' property set to a base game .xob model path (e.g., '{5F4C4181F065B447}Assets/Props/Military/Barrels/BarrelGreen_01.xob') or the entity will be invisible in-game. Use api_search to find model paths.\n\n" +
+        "IMPORTANT: For 'interactive' and other visible prefabs, the MeshObject component MUST have its 'Object' property set to a base game .xob model path (e.g., '{D73D5FE0EEFBCD9B}Assets/Props/Industrial/BarrelMetal_01/BarrelMetal_01.xob') or the entity will be invisible in-game. Use api_search to find model paths.\n\n" +
         "action=inspect: Inspect an Arma Reforger prefab (.et file) and its full inheritance chain. " +
         "Reads each ancestor prefab, parses all components, and returns a fully merged view " +
         "showing which ancestor each component comes from. " +
@@ -125,7 +125,7 @@ export function registerPrefab(server: McpServer, config: Config): void {
           .string()
           .optional()
           .describe(
-            "(create) Parent prefab to inherit from (e.g., '{GUID}Prefabs/Weapons/AK47.et'). Omit to create a standalone prefab."
+            "(create) Parent prefab to inherit from (e.g., '{3E413771E1834D2F}Prefabs/Weapons/Rifles/M16/Rifle_M16A2.et'). Omit to create a standalone prefab."
           ),
         components: z
           .array(

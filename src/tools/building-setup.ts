@@ -128,7 +128,7 @@ export function generateBuildingPrefab(
 
   const xob = fbxToXob(manifest.structure.fbx, modPrefix);
 
-  return `SCR_DestructibleBuildingEntity : "{B6D7B585448658F5}Prefabs/Structures/BuildingParts/Building_Base.et" {
+  return `SCR_DestructibleBuildingEntity : "{A43A100E3C377DB2}Prefabs/Structures/Core/Building_Base.et" {
  components {
   MeshObject {
    Object "${xob}"

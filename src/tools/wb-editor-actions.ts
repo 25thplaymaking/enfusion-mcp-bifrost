@@ -10,6 +10,7 @@
 import { z } from "zod";
 import { WorkbenchError } from "../workbench/client.js";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 /**
  * A timed-out save has an unknown outcome. A modal dialog is one possible
@@ -81,7 +82,7 @@ const openResourceTool = defineWorkbenchTool({
   inputSchema: {
     path: z
       .string()
-      .describe("Resource path to open (e.g., 'Prefabs/Weapons/AK47.et', 'Scripts/Game/MyScript.c')"),
+      .describe("Resource path to open (e.g., 'Prefabs/Weapons/Rifles/AK74/Rifle_AK74.et', 'Scripts/Game/MyScript.c')"),
     allowForeground: z
       .boolean()
       .optional()
@@ -89,7 +90,7 @@ const openResourceTool = defineWorkbenchTool({
       .describe("Required acknowledgement because opening a resource can activate a Workbench window."),
   },
   validate: ({ allowForeground }) =>
-    allowForeground === true
+    allowForeground === true || foregroundAuthorized()
       ? null
       : "Error: opening a resource can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.",
   apiFunc: ({ path }, client) =>

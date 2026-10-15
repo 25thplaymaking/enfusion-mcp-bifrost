@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 const MUTATING_SCRIPT_ACTIONS = new Set(["setLine", "insertLine", "removeLine"]);
 const LINE_ACTIONS = new Set(["getLine", "setLine", "insertLine", "removeLine", "readRange"]);
@@ -49,7 +50,7 @@ const scriptEditorTool = defineWorkbenchTool({
     if (action === "openFile" && !path) {
       return `Error: \`path\` is required for the "openFile" action.`;
     }
-    if ((action === "openFile" || action === "saveAll") && allowForeground !== true) {
+    if ((action === "openFile" || action === "saveAll") && allowForeground !== true && !foregroundAuthorized()) {
       return "Error: opening a script can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.";
     }
     if (MUTATING_SCRIPT_ACTIONS.has(action) && (!expectedFile || expectedLinesCount === undefined || expectedText === undefined)) return "Line edits require expectedFile, expectedLinesCount and expectedText from a live buffer read.";

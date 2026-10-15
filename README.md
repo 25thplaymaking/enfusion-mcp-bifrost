@@ -82,23 +82,103 @@ Work without Workbench running — API search, mod scaffolding, code generation,
 | `component_search` | Search ScriptComponent descendants — filter by category (character, vehicle, weapon, damage, inventory, ai, ui, etc.) and event handlers |
 | `wiki_search` | Search 271 current Enfusion/BI Wiki and API pages (264 official Wiki pages with revision metadata) |
 | `wiki_read` | Read the full content of a wiki page by title — no truncation, includes code examples |
-| `wb_knowledge` | Search the bundled Arma Reforger modding knowledge base — distilled patterns covering scripting, audio, weapons, vehicles, AI, UI, game modes, animation, and more |
-| `game_browse` | Browse base game files — loose files and `.pak` archives transparently |
-| `game_read` | Read base game files — scripts, prefabs, configs from loose files or `.pak` |
-| `prefab_inspect` | Inspect a prefab's full inheritance chain — merges all components across ancestors, showing which level each value comes from. Solves the problem of `.et` files only showing overrides. |
-| `asset_search` | Search game assets by name across loose files and `.pak` archives |
-| `project` | Browse, read with line ranges/hash, search recursively, write, or precisely edit supported text sources across editors |
-| `mod_create` | Scaffold a complete addon with directory structure and `.gproj` |
-| `script_create` | Generate Enforce Script (`.c`) files — 7 types: component, gamemode, action, entity, manager, modded, basic. Auto-fetches overridable parent methods from API index when `parentClass` is specified |
-| `prefab_create` | Generate Entity Template (`.et`) prefabs — 7 types: character, vehicle, weapon, spawnpoint, gamemode, interactive, generic |
-| `layout_create` | Generate UI layout (`.layout`) files — 5 types: hud, menu, dialog, list, custom |
-| `layout_recipe` | Generate complete UI layouts from reusable Enfusion-safe recipes |
-| `menu_create` | Generate a menu layout and controller scaffold with consistent widget bindings |
-| `gamemode_scaffold` | Generate a game-mode script, prefab, and config scaffold |
-| `config_create` | Generate config files — factions, missions, entity catalogs, editor placeables |
-| `server_config` | Generate dedicated server config for local testing |
-| `mod_validate` | Validate project structure, scripts, prefabs, configs, and naming |
-| `mod_build` | Build the addon using the Workbench CLI |
+
+### Tools (63 total: 26 offline, 37 live)
+
+**Start every authoring task with `wb_playbook`.** It returns the preconditions,
+the ordered tool calls, the traps that fail silently, and how to verify. Use
+`wb_knowledge` for engine facts once you know the task.
+
+**The `wb_` prefix does not mean "needs Workbench".** `wb_knowledge` and
+`wb_playbook` are `wb_`-prefixed and work entirely offline.
+
+#### Procedure (start here)
+
+| Tool | What it does |
+|------|-------------|
+| `wb_playbook` | **START HERE.** Task-oriented playbook: preconditions, ordered tool calls, silent-failure traps, verification. `query="catalogue"` lists all 19 |
+| `wb_knowledge` | Subject-oriented KB: engine concepts and API detail across 48 pattern docs |
+
+#### Reference / research
+
+| Tool | What it does |
+|------|-------------|
+| `api_search` | Search the Enfusion/Arma script API by class, method, or keyword (8693 classes indexed) |
+| `component_search` | Find ScriptComponent descendants — the building blocks you attach to entities |
+| `wiki_search` | Search the pre-downloaded BI wiki (271 pages) |
+| `wiki_read` | Read a full wiki page by title |
+| `game_browse` | Browse base game data files (scripts, prefabs, configs) |
+| `game_read` | Read a file from the base game data |
+| `asset_search` | Search for base game assets (prefabs, models, textures, scripts, configs) by name |
+
+#### Authoring (offline)
+
+| Tool | What it does |
+|------|-------------|
+| `mod` | Addon management — `action`: `create` (scaffold), `validate` (no build needed), `build` (needs local Steam Diag Workbench) |
+| `script_create` | Create a new Enforce Script (.c) file for an Arma Reforger mod |
+| `prefab` | Prefab `.et` work — `action=create` from a recipe type, or `action=inspect` for the full inheritance chain |
+| `config_create` | Create a config (.conf) file for an Arma Reforger mod |
+| `server_config` | Generate a dedicated server config (server.json) for testing an Arma Reforger mod locally |
+| `layout_create` | Create a UI layout (.layout) file for an Arma Reforger mod |
+| `layout_recipe` | Generate a UI layout (.layout) from a proven blueprint recipe (extracted from real Arma Reforger HUDs) |
+| `menu_create` | Scaffold a complete custom Arma Reforger menu: the Enforce class (.c) with the modded ChimeraMenuPreset enum entry and... |
+| `gamemode_scaffold` | Scaffold a modded SCR_GameModeCampaign for Conflict by composing cookbook-verified feature recipes (battle_prep, seedi... |
+| `scenario_create` | Create a scenario element in the live scene (objective, spawnpoint, ...) |
+| `scenario_create_conflict` | Generate a full Conflict multiplayer scenario as up to 7 files |
+| `animation_graph` | Author and inspect vehicle animation graphs (AGF/AGR) |
+| `editor_asset` | Inspect/author Workbench graph-editor assets (ACP/PTC/PAP/SIGA) |
+| `building_setup` | Set up a destructible building from a Blender export manifest |
+| `game_duplicate` | Duplicate a base-game prefab/config into your mod for editing |
+| `project` | Browse, read, search, write, or precisely edit Workbench source files, including audio/particle/animation graphs, mate... |
+| `workshop_info` | Read Workshop metadata (mod ID, GUID, dependencies) from a `.gproj` |
+
+#### Project files
+
+| Tool | What it does |
+|------|-------------|
+
+#### Live Workbench (needs editor open + focused)
+
+| Tool | What it does |
+|------|-------------|
+| `wb_capabilities` | **Start here for live Workbench work.** Editor/source/tool coverage and read-only project discovery |
+| `wb_state` | Get a full snapshot of the current Workbench state |
+| `wb_connect` | Test connection to Arma Reforger Workbench |
+| `wb_diagnose` | Full diagnostic of the MCP <-> Workbench connection with a verdict |
+| `wb_launch` | Launch Workbench (opt-in) |
+| `wb_docs` | List/read the bundled agent Workbench guides |
+| `wb_bridge` | Inspect/install the native MCP handler plugin in a verified loaded addon |
+| `wb_debug` | Bounded runtime logs, resumable cursors, source context, native debugger panes |
+| `wb_cleanup` | Remove temporary EnfusionMCP handler scripts |
+| `wb_reload` | Reload and compile scripts or plugins in the running Workbench, then return structured compile errors from Workbench's... |
+| `wb_validate_scripts` | Run Workbench's built-in ValidateScripts NET API endpoint and return its structured success flag, errors, warnings, fi... |
+| `wb_compile_status` | Read the latest Workbench script compilation result from its authoritative script.log |
+| `wb_script_editor` | Read the live Script Editor buffer (including unsaved changes) and edit exact lines with conflict checks |
+| `wb_batch` | Run up to 25 existing Workbench tools in order (not atomic) |
+| `wb_projects` | Query actual loaded addon IDs, locate the loaded project containing an absolute filesystem path, or open a .gproj with... |
+| `wb_open_resource` | Open a resource file in the appropriate Workbench editor |
+| `wb_play` | Switch Workbench to game (play) mode |
+| `wb_stop` | Stop game mode and return to the World Editor |
+| `wb_save` | Save the current world in the World Editor |
+| `wb_undo_redo` | Undo or redo the last action in the World Editor |
+| `wb_execute_action` | Execute a Workbench menu action by its menu path |
+| `wb_editor_module` | Shared control for every Reforger Workbench editor |
+| `wb_entity_create` | Create a new entity in the World Editor from a prefab |
+| `wb_entity_list` | List entities in the current world |
+| `wb_entity_inspect` | Get detailed information about a specific entity, including its components, properties, position, and children |
+| `wb_entity_modify` | Modify an entity in the World Editor |
+| `wb_entity_delete` | Delete an entity from the World Editor by name |
+| `wb_entity_select` | Manage entity selection in the World Editor |
+| `wb_entity_duplicate` | Duplicate a scene entity (including locked base-game prefab instances) into your mod folder, assigning it a new resour... |
+| `wb_component` | Manage components on an entity in the World Editor |
+| `wb_prefabs` | Create/save Workbench prefab templates, look up registered GUIDs, or discover prefab source files in a directory on th... |
+| `wb_resources` | Manage Workbench resources |
+| `wb_layers` | Manage layers in the World Editor |
+| `wb_terrain` | Query terrain information |
+| `wb_validate` | Validate a material or texture resource using the Workbench's built-in validators |
+| `wb_clipboard` | Clipboard operations in the World Editor |
+| `wb_localization` | Manage localization entries in the Workbench Localization Editor |
 
 ### Live Workbench Tools
 
@@ -143,7 +223,7 @@ Control a running Workbench instance over TCP. Requires the handler scripts inst
 
 ### Mod Patterns
 
-10 built-in templates for `mod_create`:
+10 built-in templates, applied via `mod` with `action: "create"` and `pattern`:
 
 `game-mode` `custom-faction` `custom-action` `spawn-system` `custom-component` `modded-behavior` `admin-tool` `custom-vehicle` `weapon-reskin` `hud-widget`
 
@@ -199,7 +279,9 @@ Rarely needed — the defaults are correct for almost everyone.
 ## Requirements
 
 - **Node.js 20+**
-- **Arma Reforger Tools** (Steam) — needed for `mod_build` and all `wb_*` tools
+- **Arma Reforger Tools** (Steam) — needed for the live `wb_*` bridge tools, and for
+  `mod` with `action: "build"` (which additionally needs the *Profiling Build* beta
+  for `ArmaReforgerWorkbenchSteamDiag.exe`). The other 24 tools work without it.
 
 ## Development
 

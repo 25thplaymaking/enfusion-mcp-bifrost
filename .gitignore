@@ -13,3 +13,6 @@ dist/
 *.pdf
 
 nul
+
+# local KB rebuild backups and logs
+.bak-kb/

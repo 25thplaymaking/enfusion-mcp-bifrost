@@ -7,7 +7,7 @@ import {
   type WorkbenchMode,
 } from "../workbench/client.js";
 import { formatConnectionStatus, requireEditMode, requirePlayMode } from "../workbench/status.js";
-import { sleep, renderError } from "../workbench/tool-helpers.js";
+import { sleep, renderError, withLifecycleLock } from "../workbench/tool-helpers.js";
 
 /**
  * Poll EMCP_WB_GetState until the cached mode reaches `target` or the budget
@@ -62,7 +62,7 @@ export function registerWbEditorTools(server: McpServer, client: WorkbenchClient
           .describe("Launch in full-screen mode instead of windowed"),
       },
     },
-    async ({ debugMode, fullScreen }) => {
+    async ({ debugMode, fullScreen }) => withLifecycleLock(async () => {
       const modeErr = await requireEditMode(client, "start play mode");
       if (modeErr) {
         return { content: [{ type: "text" as const, text: modeErr + formatConnectionStatus(client) }], isError: true };
@@ -111,7 +111,7 @@ export function registerWbEditorTools(server: McpServer, client: WorkbenchClient
           isError: true,
         };
       }
-    }
+    })
   );
 
   // wb_stop — Switch to edit mode
@@ -119,11 +119,19 @@ export function registerWbEditorTools(server: McpServer, client: WorkbenchClient
     "wb_stop",
     {
       description:
-        "Stop game mode and return to the World Editor. Equivalent to pressing Stop in the World Editor. Requires play mode.",
+        "Stop game mode and return to the World Editor. Equivalent to pressing Stop in the World Editor. " +
+        "Succeeds without doing anything when Workbench is already in edit mode.",
       inputSchema: {},
     },
-    async () => {
+    async () => withLifecycleLock(async () => {
       const modeErr = await requirePlayMode(client, "stop play mode");
+      // Edit mode is the state this tool exists to reach, so it is not an error.
+      // Reporting it as one sent agents to call wb_play just to stop again.
+      if (modeErr && client.state.mode === "edit") {
+        return {
+          content: [{ type: "text" as const, text: `**Already in Edit Mode** — nothing to stop.${formatConnectionStatus(client)}` }],
+        };
+      }
       if (modeErr) {
         return { content: [{ type: "text" as const, text: modeErr + formatConnectionStatus(client) }], isError: true };
       }
@@ -172,6 +180,6 @@ export function registerWbEditorTools(server: McpServer, client: WorkbenchClient
           isError: true,
         };
       }
-    }
+    })
   );
 }

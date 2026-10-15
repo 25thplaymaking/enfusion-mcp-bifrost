@@ -36,7 +36,8 @@ if (!existsSync(capturePath))
     fail(`capture not found: ${capturePath}`);
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const packageRoot = resolve(scriptDir, "..", "..");
+// scripts/ sits directly under the package root.
+const packageRoot = resolve(scriptDir, "..");
 const wikiDir = resolve(packageRoot, "data", "wiki");
 const pagesPath = resolve(wikiDir, "pages.json");
 const metadataPath = resolve(wikiDir, "metadata.json");
@@ -90,6 +91,7 @@ const metadata = {
     schemaVersion: 1,
     source: capture.source,
     namespace: capture.namespace,
+    format: capture.format ?? "plaintext",
     capturedAt: capture.capturedAt,
     installedAt: new Date().toISOString(),
     officialPageCount: capture.pages.length,

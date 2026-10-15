@@ -109,10 +109,9 @@ Any entity that should be visible in the game world MUST have a **MeshObject** c
 You don't need to create custom models. Just borrow one from the base game that looks reasonable:
 - Use **api_search** or **project_browse** on the base Arma Reforger data to find \`.xob\` paths
 - Example paths (format: \`{GUID}path/to/model.xob\`):
-  - Military barrel: \`{5F4C4181F065B447}Assets/Props/Military/Barrels/BarrelGreen_01.xob\`
-  - Ammo crate: \`{1E648E8B6B28E837}Assets/Props/Military/AmmoBoxes/AmmoBox_545x39_60rnd.xob\`
-  - Medical box: \`{D26ABAE8B017EC4E}Assets/Props/Military/CasualtyBag/CasualtyBag_01.xob\`
-- Pick something that vaguely fits the purpose — a healing station could use a medical box, a terminal could use a radio, etc.
+  - Metal barrel: \`{D73D5FE0EEFBCD9B}Assets/Props/Industrial/BarrelMetal_01/BarrelMetal_01.xob\`
+  - Ammo crate: \`{14EA4D87418CBB67}Assets/Props/Military/AmmoBox/AmmoBox_545x39_1080rnd/AmmoBox_545x39_1080rnd.xob\`
+  - Pick something that vaguely fits the purpose — a healing station could use a medical box, a terminal could use a radio, etc.
 - After creating a prefab with **prefab_create**, use **project_read** + **project_write** to set the MeshObject \`Object\` property to a real model path
 
 This applies to ALL physical in-game objects: interactive props, spawn points with markers, placed items, vehicles, weapons, etc.

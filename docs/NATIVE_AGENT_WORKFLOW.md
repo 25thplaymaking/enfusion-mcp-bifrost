@@ -2,6 +2,32 @@
 
 Use the existing MCP and native Enforce bridge to take a task from evidence to a verified compiler result. All models use the same interface; there is no model allowlist. The user's existing authorization covers ordinary editor work. Opening windows uses `allowForeground: true` when that activity is authorized.
 
+## Start here: `wb_playbook`, not memory
+
+Before authoring anything, call the playbook tool with the task in your own
+words:
+
+```
+wb_playbook {"query": "import a model from blender"}   # -> preconditions,
+                                                          #    ordered tool calls,
+                                                          #    silent-failure traps,
+                                                          #    verification
+wb_playbook {"query": "catalogue"}                      # all 19
+```
+
+This is not ceremony. The expensive Enfusion failures are **silent**: a menu that
+opens onto a missing layout, a placeable prefab with no root `ID` that kicks the
+placing client, an animation variable bound every frame instead of once, a terrain
+import that keeps the right *shape* while every absolute height is wrong. The
+playbooks front-load the preconditions that catch them.
+
+Use `wb_knowledge` for engine facts and API detail once you know the task.
+
+**`wb_knowledge` and `wb_playbook` are `wb_`-prefixed but fully offline** — they
+make no Workbench call. Do not assume a `wb_` tool needs a running editor; only 37
+of the 63 tools actually use the bridge. `AGENT_TOOLS.md` (generated) lists which.
+
+
 ## Establish the actual target
 
 1. Call `wb_capabilities` with `live: true`. The native project list remains available when custom handlers are missing.

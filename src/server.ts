@@ -54,6 +54,7 @@ import { registerScenarioTools } from "./tools/wb-scenario.js";
 import { registerScenarioCreate } from "./tools/scenario-create.js";
 import { registerAnimationGraph } from "./tools/animation-graph.js";
 import { registerWbKnowledge } from "./tools/wb-knowledge.js";
+import { registerWbPlaybook } from "./tools/wb-playbook.js";
 import { registerBuildingSetup } from "./tools/building-setup.js";
 import { registerEditorAssets } from "./tools/editor-assets.js";
 import { registerWorkbenchWorkflows } from "./tools/wb-workflows.js";
@@ -134,6 +135,7 @@ export function registerTools(server: McpServer, config: Config): void {
   registerWorkshopInfo(server, config);
   registerAnimationGraph(server, config);
   registerWbKnowledge(server);
+  registerWbPlaybook(server);
   registerBuildingSetup(server, config);
   registerEditorAssets(server, config);
 

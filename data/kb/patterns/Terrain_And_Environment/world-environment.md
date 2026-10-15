@@ -188,3 +188,20 @@ tree.HandleDamage(...);
 Neither `SCR_EntityHelper.DeleteEntityAndChildren` nor `BaseTree.HandleDamage` nor `GenericEntity.Show(false)`
 removes world-placed bushes on a dedicated server. Only actual trees respond to `HandleDamage`.
 Accept this limitation and skip bush removal entirely in server-side scripts.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- For AI sight and cover, trace `EPhysicsLayerDefs.FireGeometry` with characters filtered out;
+  the navmesh `RayTrace` is not line of sight (see *AI Orders & Movement*).
+- `QueryEntitiesByAABB` (like the sphere query) returns the terrain entity and map furniture;
+  filter for what you mean (e.g. require `SCR_EditableEntityComponent` for placed props).
+- Vanilla trees are `Tree : BaseTree`; cast to `BaseTree` to reject tree crowns in ground
+  probes, or a falling body "lands" in a crown.
+- A probe that starts inside its own entity hits itself: set `TraceParam.Exclude` to the
+  probing entity (or its root) and start the ray above the body.
+- `SCR_Global.IsPositionWithinTerrainBounds` rejects points under the terrain surface as well
+  as outside the map.

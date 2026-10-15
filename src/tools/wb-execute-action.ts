@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 // Menu paths that are known-destructive and blocked for safety.
 const BLOCKED_MENU_PREFIXES = [
@@ -42,7 +43,7 @@ const executeActionTool = defineWorkbenchTool({
     if (lowerPath.includes("reload scripts") || lowerPath.includes("compile")) {
       return `**Blocked:** "${menuPath}" can destroy the NET API handler during its reply. Use \`wb_validate_scripts\` or \`wb_reload\` instead.`;
     }
-    if (allowForeground !== true) {
+    if (allowForeground !== true && !foregroundAuthorized()) {
       return "Error: an arbitrary menu action can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.";
     }
     return null;

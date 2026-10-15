@@ -96,4 +96,30 @@ describe("parseClassPage inheritance (map-area heuristic)", () => {
     // No grandchildren in parents either
     expect(cls.parents).not.toContain("AutotestGrid");
   });
+
+  it("names each method after its declaration, not its linked parameter types", () => {
+    const all = [...(cls.methods ?? []), ...(cls.staticMethods ?? []), ...(cls.protectedMethods ?? [])];
+    const withLinkedParams = all.filter((m) => /\(\s*\w/.test(m.signature));
+    expect(withLinkedParams.length).toBeGreaterThan(0);
+    for (const m of all) {
+      const declared = m.signature.match(/([A-Za-z_~]\w*)\s*\(/)?.[1];
+      expect(m.name).toBe(declared);
+    }
+  });
+});
+
+describe("shipped API index method names", () => {
+  it("match their signatures (no parameter types glued on)", () => {
+    for (const file of ["enfusion-classes.json", "arma-classes.json"]) {
+      const classes = JSON.parse(readFileSync(resolve(fixturesDir, "..", "..", "data", "api", file), "utf-8")) as any[];
+      const bad: string[] = [];
+      for (const c of classes) {
+        for (const m of [...(c.methods ?? []), ...(c.staticMethods ?? []), ...(c.protectedMethods ?? [])]) {
+          const declared = m.signature?.match(/([A-Za-z_]\w*)\s*\(/)?.[1];
+          if (declared && m.name !== declared && m.name.startsWith(declared)) bad.push(`${c.name}.${m.name}`);
+        }
+      }
+      expect(bad.slice(0, 5), file).toEqual([]);
+    }
+  });
 });

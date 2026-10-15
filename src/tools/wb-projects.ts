@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
 import { toEnginePath, normalizeOsPath } from "../utils/wsl-path.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 const projectsTool = defineWorkbenchTool({
   name: "wb_projects",
@@ -25,7 +26,7 @@ const projectsTool = defineWorkbenchTool({
     if (action === "locate" && (!target || !/^(?:[A-Za-z]:[/\\]|[/\\])/.test(target))) {
       return "Error: `path` must be an absolute filesystem path inside a loaded project. LocateProject does not accept addon names.";
     }
-    if (action === "open" && allowForeground !== true) return "Error: opening a project can activate Workbench. Pass `allowForeground: true` when foreground activity is authorized.";
+    if (action === "open" && allowForeground !== true && !foregroundAuthorized()) return "Error: opening a project can activate Workbench. Pass `allowForeground: true` when foreground activity is authorized.";
     return null;
   },
   apiFunc: ({ action, name, path }, client) => {

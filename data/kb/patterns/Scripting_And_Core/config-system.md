@@ -224,3 +224,19 @@ Worlds/          — World files, terrains
 - **JsonApiStruct child objects must be pre-allocated**: If registered child is null during expand, it is silently skipped. Allocate in constructor before `RegV()`.
 - **Script replacement requires exact relative path + filename**: Use `modded` keyword for class modification.
 - **`PrefabsEditable/Auto/`**: Auto-generated — do not edit manually.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **`modded class` of a `configRoot` class must restate the decorator**
+  `[BaseContainerProps(configRoot: true)]`, or config loading fails with
+  `DEFAULT (E): Unknown class` even though the script compiles.
+- **Prefab and config overrides do not merge across mods.** If two mods override the same
+  resource (e.g. `Prefabs/Editor/Modes/EditorModeEdit.et`), only one version loads. Extend
+  vanilla lists from script where a hook exists instead of overriding shared editor-mode
+  prefabs or action-list configs.
+- The engine identifies resources by GUID only: a file at vanilla's path with a different
+  GUID is never used in vanilla's place.

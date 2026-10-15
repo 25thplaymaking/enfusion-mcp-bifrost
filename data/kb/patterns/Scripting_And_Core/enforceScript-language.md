@@ -142,7 +142,10 @@ Cancel in `OnDelete`: `GetGame().GetCallqueue().Remove(DeleteOneFromQueue);`
 - `string` is **never null** — check empty with `.IsEmpty()`.
 - **float comparison**: never use `==`. Use `float.AlmostEqual(a, b)` (optional epsilon, default 0.0001).
 - **int division floors**: `5/3 == 1`. Cast to float if decimal result needed.
-- **`%` is int-only**: use `Math.Repeat()` for float modulo.
+- **`%` is int-only**: for floats use `Math.Mod(v, div)` ("remainder of division v/div") or `Math.Repeat(value, range)` ("loop the value in given range").
+- **No `f` float suffix**: `1.4f` is a compile error; write `1.4`.
+- **`vanilla` is a reserved word** — not usable as a variable name.
+- **`Math` has no `Atan`**: use `Math.Atan2(y, x)`. Compiler messages and their real causes: `wb_knowledge {"query":"compile errors"}`.
 - **Vector**: Y is up (left-handed). `{X,Y,Z}`. Init from string: `vector v = "0 0 1";`
 
 ---
@@ -274,3 +277,33 @@ modded class SCR_Something { }  // replaces original in hierarchy
 - Scripts outside recognised module directories (`Core`, `GameLib`, `Game`, `GameCode`, `Workbench`, `WorkbenchGame`) are **silently ignored**.
 - Two methods with identical signatures (even differing only by return type) → **compile error**.
 - Override parameter **names** must match exactly — mismatched names silently fail the override.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Class-level `static const ref array/map` initialisers can break the whole Game module.**
+  Each one is compiled into one engine-generated static-init function shared by the module;
+  with enough mods loaded it hits the cap and the module fails with
+  `SCRIPT (E): Too many instructions per function`, blaming whichever mod tipped it over.
+  Scalar statics (`static const int/float/string/ResourceName`) are fine. Move tables into a
+  holder class with instance-member initialisers, created lazily by a static getter.
+- **`modded class` layers compile in path order and only see earlier layers.** Within one
+  addon, a modded layer cannot call a method that a later-compiled file adds to the same
+  modded class (compile error). A folder that extends classes declared in another folder must
+  sort after it.
+- **Class names are global** across every loaded addon: reusing an existing name is a
+  compile error (`Multiple declaration of class`). Prefix your classes with your addon tag.
+- **`array.Remove(i)` moves the last element into slot `i`** (order not kept). For queues use
+  `RemoveOrdered(i)`; taking index 0 with `Remove(0)` starves the middle of the queue.
+- **A script exception aborts only the faulting function**, not the module or the game; the
+  rest of a screen build keeps running. Third-party exceptions do not necessarily stop your
+  feature — attribute them by stack.
+- **`sealed` methods cannot be overridden**, not even in a test build; change the test
+  harness, not production code.
+- **`modded class` of a config root must restate `[BaseContainerProps(configRoot: true)]`.**
+  Without it the script compiles cleanly but loading the config fails with
+  `DEFAULT (E): Unknown class '<X>'`. On `SCR_EditableEntityCore` this broke
+  `CoresManager.conf` and killed the GM editor.

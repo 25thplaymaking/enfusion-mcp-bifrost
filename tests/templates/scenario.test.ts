@@ -131,13 +131,13 @@ describe("generateConflictScenario", () => {
     it("includes SCR_GameModeCampaign entity", () => {
       const { defaultLayer } = generateConflictScenario(MINIMAL_OPTS);
       expect(defaultLayer).toContain("SCR_GameModeCampaign");
-      expect(defaultLayer).toContain("GameMode_Seize.et");
+      expect(defaultLayer).toContain("{3B230AAC5252108F}Prefabs/MP/Modes/Conflict/GameMode_Campaign.et");
     });
 
     it("includes SCR_CampaignFactionManager entity", () => {
       const { defaultLayer } = generateConflictScenario(MINIMAL_OPTS);
       expect(defaultLayer).toContain("SCR_CampaignFactionManager");
-      expect(defaultLayer).toContain("CampaignFactionManager_Seize.et");
+      expect(defaultLayer).toContain("{F1AC26310BAE3788}Prefabs/MP/Campaign/CampaignFactionManager.et");
     });
 
     it("each entity has a unique ID", () => {
@@ -203,9 +203,14 @@ describe("generateConflictScenario", () => {
       expect(basesLayer).toContain("m_bExcludeFromRandomization 1");
     });
 
-    it("includes spawn protection area on MOB", () => {
-      const { basesLayer } = generateConflictScenario(MINIMAL_OPTS);
-      expect(basesLayer).toContain("MOBSpawnProtectionArea.et");
+    // The MOB spawn-protection child and m_bHideBasesOutsideRadioRange came from
+    // a workshop mod (SCR_Iron_*); the base game has neither, so a vanilla load
+    // reported "Unknown class". Generated scenarios must stand on vanilla alone.
+    it("emits only base-game classes and prefabs", () => {
+      const { defaultLayer, basesLayer } = generateConflictScenario(MINIMAL_OPTS);
+      for (const text of [defaultLayer, basesLayer]) {
+        expect(text).not.toMatch(/Seize\.et|SCR_Iron_|MOBSpawnProtection|HideBasesOutsideRadioRange/);
+      }
     });
 
     it("includes SCR_CampaignSuppliesComponent on MOB", () => {

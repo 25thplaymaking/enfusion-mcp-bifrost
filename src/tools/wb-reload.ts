@@ -8,7 +8,7 @@ import {
   type WorkbenchClient,
 } from "../workbench/client.js";
 import { formatConnectionStatus } from "../workbench/status.js";
-import { sleep, renderError } from "../workbench/tool-helpers.js";
+import { sleep, renderError, withLifecycleLock } from "../workbench/tool-helpers.js";
 import {
   captureCompileLogCursor,
   readCompileLogSince,
@@ -32,6 +32,21 @@ export function shouldProbeReloadHandler(
 ): boolean {
   return target === "plugins" || (compileReport.sawWorkbenchGameModule && !compileReport.failed);
 }
+
+/**
+ * The native ReloadScripts endpoint answers "Compilation failed" both when a
+ * compile really failed and when it refused to start one (play mode starting
+ * or stopping, a previous reload still settling, a blocking Animation/Navmesh
+ * editor). Only the log tells them apart: a refused reload writes no compile
+ * block at all. Field evidence: 7 of 17 recorded reloads hit this, all
+ * alongside a parallel wb_play/wb_stop, and every one passed on a plain retry.
+ */
+export function isRefusedReload(error: unknown, report: Pick<CompileLogReport, "sawCompile" | "failed">): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /compilation failed/i.test(message) && !report.sawCompile && !report.failed;
+}
+
+const REFUSAL_LOG_WAIT_MS = 4_000;
 
 export function isExpectedNativeReloadDisconnect(error: unknown): boolean {
   return (
@@ -57,7 +72,8 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
     {
       description:
         "Reload and compile scripts or plugins in the running Workbench, then return structured compile errors from Workbench's script.log. " +
-        "Use after editing .c files; it does not require window focus and never launches another Workbench.",
+        "Use after editing .c files; it does not require window focus and never launches another Workbench. " +
+        "Runs after any in-flight wb_play/wb_stop finishes. 'Reload Refused' means no compile ran (not a script error).",
       inputSchema: {
         target: z
           .enum(["scripts", "plugins", "both"])
@@ -65,7 +81,7 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
           .describe("What to reload: scripts, plugins, or both"),
       },
     },
-    async ({ target }) => {
+    async ({ target }) => withLifecycleLock(async () => {
       const logCursor = captureCompileLogCursor(config.workbenchProfile);
       try {
         if (target === "plugins" || target === "both") {
@@ -80,7 +96,30 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
         }
       } catch (e) {
         client.markStale();
-        const report = readCompileLogSince(config.workbenchProfile, logCursor);
+        let report = readCompileLogSince(config.workbenchProfile, logCursor);
+        // Give a real compile a moment to flush its block before classifying.
+        const waitUntil = Date.now() + REFUSAL_LOG_WAIT_MS;
+        while (isRefusedReload(e, report) && Date.now() < waitUntil) {
+          await sleep(RELOAD_CONFIRM_POLL_MS);
+          report = readCompileLogSince(config.workbenchProfile, logCursor);
+        }
+        if (isRefusedReload(e, report)) {
+          return {
+            content: [{
+              type: "text" as const,
+              text:
+                "**Reload Refused — no compile ran.** Workbench answered \"Compilation failed\" but wrote no compile block " +
+                "to script.log, so this is NOT a script error and there is nothing to fix in your code.\n\n" +
+                "Usual causes: play mode starting or stopping, a previous reload still settling, or an open " +
+                "Animation/Navmesh editor. Do not run wb_reload in parallel with wb_play/wb_stop. " +
+                "Check `wb_state`, make sure Workbench is in edit mode with no transition running, then call wb_reload once more. " +
+                "`wb_validate_scripts` answers \"does it compile?\" without needing a reload." +
+                formatConnectionStatus(client),
+            }],
+            structuredContent: { outcome: "refused", report, next: "Confirm edit mode with wb_state, then retry wb_reload once. Use wb_validate_scripts for a compile-only check." },
+            isError: true,
+          };
+        }
         return {
           content: [{ type: "text" as const, text: `Error reloading: ${renderError(e)}\n\n${formatCompileReport(report)}${formatConnectionStatus(client)}` }],
           structuredContent: { outcome: "error", report, next: "Resolve the reported compiler or editor-module blocker. Save/close blocking editors explicitly before retrying; do not restart or repeat blindly." },
@@ -147,13 +186,15 @@ export function registerWbReload(server: McpServer, config: Config, client: Work
             type: "text" as const,
             text:
               `**Reload Unconfirmed** — no completed focus-free reload was observed within ${RELOAD_CONFIRM_TIMEOUT_MS / 1000}s. ` +
-              `This can mean the native reload was rejected or a script compile error blocked handler reload.\n\n` +
+              `This can mean the native reload was rejected or a script compile error blocked handler reload. ` +
+              `Treat the scripts as NOT reloaded: a compile summary below does not prove the running editor uses the new code. ` +
+              `If the bridge handlers are missing from the loaded addon, see \`wb_bridge\`.\n\n` +
               `${formatCompileReport(compileReport)}${formatConnectionStatus(client)}`,
           },
         ],
         isError: true,
         structuredContent: { outcome: "unconfirmed", report: compileReport },
       };
-    }
+    })
   );
 }

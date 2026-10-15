@@ -1,0 +1,629 @@
+{
+  "playbooks": [
+    {
+      "id": "add-a-prefab",
+      "title": "Add or override a prefab (.et)",
+      "goal": "A prefab that loads, inherits correctly, and — if placeable — has a stable root ID so it replicates.",
+      "triggers": [
+        "add a prefab",
+        "new prefab",
+        "create a prefab",
+        "override a prefab",
+        "duplicate a base game prefab",
+        "placeable entity",
+        "entity template",
+        "et file",
+        "custom prop"
+      ],
+      "tools": [
+        "prefab",
+        "game_duplicate",
+        "game_read",
+        "wb_prefabs",
+        "wb_validate",
+        "project",
+        "wb_reload"
+      ],
+      "seeAlso": [
+        "write-an-enforcescript-component",
+        "live-workbench-session"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "add-a-sound",
+      "title": "Add or change a sound (.acp)",
+      "goal": "A sound that plays at the right moment, at the right volume, from the right component — and that is audible in-game rather than silent.",
+      "triggers": [
+        "add a sound",
+        "footsteps",
+        "footstep sounds",
+        "weapon sound",
+        "gunshot audio",
+        "change a sound",
+        "audio system",
+        "acp file",
+        "sound event",
+        "vehicle engine sound",
+        "sound is silent",
+        "audio not playing"
+      ],
+      "tools": [
+        "editor_asset",
+        "component_search",
+        "api_search",
+        "wb_resources",
+        "project",
+        "wb_reload",
+        "wb_play",
+        "wb_debug"
+      ],
+      "seeAlso": [
+        "live-workbench-session",
+        "create-a-model-in-workbench"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "add-a-vehicle",
+      "title": "Add or variant a vehicle",
+      "goal": "A driveable vehicle prefab (or a re-factioned variant of an existing one) with mesh, physics, animation graph, fuel and damage wired, and a root ID so it spawns for clients.",
+      "triggers": [
+        "add a vehicle",
+        "new car",
+        "truck",
+        "vehicle variant",
+        "change a vehicle",
+        "jeep",
+        "tank",
+        "vehicle physics",
+        "spg seat",
+        "spawn a vehicle"
+      ],
+      "tools": [
+        "prefab",
+        "game_duplicate",
+        "config_create",
+        "animation_graph",
+        "component_search",
+        "api_search",
+        "editor_asset",
+        "wb_prefabs",
+        "wb_resources",
+        "project",
+        "wb_reload",
+        "wb_play"
+      ],
+      "seeAlso": [
+        "add-a-prefab",
+        "author-an-animation-graph",
+        "replicate-state-to-clients"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "add-a-weapon",
+      "title": "Add a weapon or weapon attachment",
+      "goal": "A weapon prefab (or attachment prefab) that fires, cocks, reloads, and can be put in someone's hands.",
+      "triggers": [
+        "add a weapon",
+        "new gun",
+        "weapon attachment",
+        "scope",
+        "suppressor",
+        "magazine",
+        "weapon mod",
+        "reskin a weapon"
+      ],
+      "tools": [
+        "prefab",
+        "game_duplicate",
+        "config_create",
+        "component_search",
+        "api_search",
+        "wb_prefabs",
+        "wb_resources",
+        "project",
+        "wb_reload",
+        "wb_play"
+      ],
+      "seeAlso": [
+        "add-a-prefab",
+        "import-a-model-from-blender",
+        "write-an-enforcescript-component"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "author-ai-behaviour",
+      "title": "Author AI behaviour (behavior tree + navmesh)",
+      "goal": "An NPC that navigates and acts, on a navmesh that exists, with a behavior tree you can debug.",
+      "triggers": [
+        "ai",
+        "behavior tree",
+        "ai behaviour",
+        "npc",
+        "ai pathing",
+        "navmesh",
+        "ai wont move",
+        "ai wont navigate",
+        "soldier ai",
+        "ai debug",
+        "aicontrolcomponent"
+      ],
+      "tools": [
+        "wb_open_resource",
+        "wb_resources",
+        "wb_play",
+        "wb_state",
+        "wb_debug",
+        "project",
+        "wb_reload"
+      ],
+      "seeAlso": [
+        "live-workbench-session",
+        "author-terrain-for-a-map"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "author-an-animation-graph",
+      "title": "Author an animation graph (AGF/AGR)",
+      "goal": "An animation graph that drives bones or plays clips, using the right track and the right variable-binding discipline.",
+      "triggers": [
+        "animation",
+        "animate a character",
+        "animate a vehicle",
+        "animation graph",
+        "agf",
+        "agr",
+        "bone animation",
+        "procedural animation",
+        "state machine animation",
+        "animation variable",
+        "drive a bone from script",
+        "txa"
+      ],
+      "tools": [
+        "animation_graph",
+        "editor_asset",
+        "wb_resources",
+        "project",
+        "wb_reload",
+        "api_search"
+      ],
+      "seeAlso": [
+        "import-a-model-from-blender",
+        "write-an-enforcescript-component"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "author-terrain-for-a-map",
+      "title": "Author terrain for a map",
+      "goal": "A terrain whose heightfield is verifiably in metres at the right scale, with its surfaces painted — or an honest list of the steps that need a human.",
+      "triggers": [
+        "terrain",
+        "heightmap",
+        "height field",
+        "heightfield",
+        "new terrain",
+        "satmap",
+        "satellite map",
+        "landscape",
+        "paint surfaces",
+        "terrain creation tool",
+        "make a map",
+        "new world terrain"
+      ],
+      "tools": [
+        "wb_state",
+        "wb_terrain",
+        "wb_entity_create",
+        "wb_layers",
+        "wb_save",
+        "wb_open_resource",
+        "wb_debug",
+        "wb_editor_module"
+      ],
+      "seeAlso": [
+        "live-workbench-session"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "create-a-config",
+      "title": "Create a config (.conf)",
+      "goal": "A .conf that the Config Editor and the engine both accept, with its classes actually selectable.",
+      "triggers": [
+        "create a config",
+        "conf file",
+        "define a faction",
+        "mission header",
+        "entity catalog",
+        "placeables config",
+        "gamemode config",
+        "config editor"
+      ],
+      "tools": [
+        "config_create",
+        "mod",
+        "wiki_read",
+        "wb_validate_scripts",
+        "wb_reload"
+      ],
+      "seeAlso": [
+        "scaffold-a-new-addon",
+        "add-a-prefab"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "create-a-game-mode",
+      "title": "Create a game mode",
+      "goal": "A game mode that loads in a world and runs — script, prefab/entities, layer files and a mission header — with every silent failure mode named.",
+      "triggers": [
+        "create a game mode",
+        "new game mode",
+        "custom game mode",
+        "conflict scenario",
+        "multiplayer scenario",
+        "make a scenario",
+        "seize and secure",
+        "scenario framework mission",
+        "mission header",
+        "game mode script",
+        "modded game mode",
+        "add a battle prep timer",
+        "seeding mode",
+        "respawn rules"
+      ],
+      "tools": [
+        "gamemode_scaffold",
+        "scenario_create_conflict",
+        "scenario_create",
+        "config_create",
+        "script_create",
+        "prefab",
+        "project",
+        "wb_state",
+        "wb_entity_create",
+        "wb_entity_modify",
+        "wb_entity_inspect",
+        "wb_entity_list",
+        "wb_layers",
+        "wb_terrain",
+        "wb_save",
+        "wb_open_resource",
+        "wb_reload",
+        "wb_validate_scripts",
+        "wb_play",
+        "wb_stop",
+        "wb_debug",
+        "wb_diagnose",
+        "api_search",
+        "component_search",
+        "asset_search",
+        "wb_knowledge",
+        "server_config"
+      ],
+      "seeAlso": [
+        "scaffold-a-new-addon",
+        "write-an-enforcescript-component",
+        "live-workbench-session",
+        "create-a-layout",
+        "create-a-menu",
+        "add-a-prefab",
+        "create-a-config",
+        "replicate-state-to-clients",
+        "author-terrain-for-a-map",
+        "create-a-model-in-workbench",
+        "add-a-sound"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "create-a-layout",
+      "title": "Create a UI layout (.layout)",
+      "goal": "A .layout file that loads in the Layout Editor, wired to your Enforce class, and visible in-game.",
+      "triggers": [
+        "create a layout",
+        "make a ui layout",
+        "new ui screen",
+        "hud layout",
+        "layout file",
+        "anchor layout",
+        "build a screen"
+      ],
+      "tools": [
+        "layout_recipe",
+        "layout_create",
+        "project",
+        "wb_open_resource",
+        "wb_validate",
+        "wb_debug",
+        "wb_play"
+      ],
+      "seeAlso": [
+        "create-a-menu"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "create-a-menu",
+      "title": "Create a custom menu (Chimera + Enforce)",
+      "goal": "A menu that opens in-game, with its input contexts, action polling and hint debouncing already correct.",
+      "triggers": [
+        "create a menu",
+        "add a menu",
+        "custom menu",
+        "new menu item",
+        "add a button to the menu",
+        "chimera menu",
+        "pause menu",
+        "menu stops working after a click"
+      ],
+      "tools": [
+        "menu_create",
+        "project",
+        "wb_reload",
+        "wb_compile_status",
+        "wb_debug",
+        "wb_play"
+      ],
+      "seeAlso": [
+        "create-a-layout",
+        "live-workbench-session"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "create-a-model-in-workbench",
+      "title": "Create a model / prop resource in Workbench",
+      "goal": "A prefab that is visible and collides in-game, with its changes actually persisted to disk.",
+      "triggers": [
+        "create a prop",
+        "make a model",
+        "new model resource",
+        "prop creation",
+        "create a prefab resource",
+        "entity in workbench",
+        "meshobject",
+        "collider",
+        "sockets",
+        "texture variant"
+      ],
+      "tools": [
+        "prefab",
+        "wb_prefabs",
+        "wb_resources",
+        "wb_entity_duplicate",
+        "wb_editor_module",
+        "project",
+        "wb_reload",
+        "wb_compile_status"
+      ],
+      "seeAlso": [
+        "import-a-model-from-blender",
+        "add-a-prefab"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "create-a-particle-effect",
+      "title": "Create a particle effect (.ptc)",
+      "goal": "A .ptc that actually shows up — with its LODs, physics prerequisites and billboard mode chosen deliberately.",
+      "triggers": [
+        "particle",
+        "particle effect",
+        "ptc",
+        "emitter",
+        "vfx",
+        "smoke effect",
+        "muzzle flash",
+        "sparks",
+        "fire effect",
+        "looping effect"
+      ],
+      "tools": [
+        "editor_asset",
+        "wb_entity_create",
+        "wb_resources",
+        "project",
+        "wb_play",
+        "wb_debug"
+      ],
+      "seeAlso": [
+        "create-a-model-in-workbench",
+        "live-workbench-session"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "import-a-model-from-blender",
+      "title": "Import a model from Blender",
+      "goal": "An FBX that imports as a correct .xob — right axis, right scale, right LODs, and matching materials.",
+      "triggers": [
+        "import a model",
+        "blender model",
+        "import fbx",
+        "fbx import",
+        "xob",
+        "model import",
+        "bring in a mesh",
+        "blender pipeline",
+        "import from blender",
+        "lod"
+      ],
+      "tools": [
+        "wb_resources",
+        "wb_open_resource",
+        "wb_editor_module",
+        "project",
+        "wb_reload",
+        "wb_validate"
+      ],
+      "seeAlso": [
+        "create-a-model-in-workbench",
+        "add-a-prefab"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "live-workbench-session",
+      "title": "Drive a live Workbench session (wb_* tools)",
+      "goal": "A working, verified session against the running Workbench, with each tool's real precondition known.",
+      "triggers": [
+        "connect to workbench",
+        "workbench is not responding",
+        "wb tools not working",
+        "live editor session",
+        "start a workbench session",
+        "play mode",
+        "workbench disconnected",
+        "handler scripts not loaded",
+        "reload refused",
+        "compilation failed",
+        "reload unconfirmed"
+      ],
+      "tools": [
+        "wb_connect",
+        "wb_capabilities",
+        "wb_state",
+        "wb_diagnose",
+        "wb_bridge",
+        "wb_launch",
+        "wb_reload",
+        "wb_validate_scripts",
+        "wb_compile_status",
+        "wb_debug",
+        "wb_play",
+        "wb_stop",
+        "wb_save"
+      ],
+      "seeAlso": [],
+      "humanStep": true
+    },
+    {
+      "id": "react-to-damage",
+      "title": "React to damage (hit zones, damage managers)",
+      "goal": "Damage that lands on the right hit zone, calls the right callbacks, and uses APIs that exist on the component you actually have.",
+      "triggers": [
+        "damage",
+        "hit zone",
+        "take damage",
+        "health",
+        "bleeding",
+        "damage over time",
+        "react to damage",
+        "damage callback",
+        "on damage",
+        "invulnerable"
+      ],
+      "tools": [
+        "component_search",
+        "api_search",
+        "write_file_tool",
+        "project",
+        "wb_reload",
+        "wb_compile_status",
+        "wb_play"
+      ],
+      "seeAlso": [
+        "write-an-enforcescript-component",
+        "replicate-state-to-clients"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "replicate-state-to-clients",
+      "title": "Replicate state to clients",
+      "goal": "State that reaches every client, with the right authority guard and the right replication mechanism.",
+      "triggers": [
+        "replicate",
+        "replication",
+        "sync to clients",
+        "multiplayer state",
+        "network sync",
+        "rplprop",
+        "rpc",
+        "jip",
+        "dedicated server",
+        "clients dont see my change",
+        "state not syncing"
+      ],
+      "tools": [
+        "api_search",
+        "component_search",
+        "project",
+        "wb_reload",
+        "wb_compile_status",
+        "wb_debug"
+      ],
+      "seeAlso": [
+        "write-an-enforcescript-component",
+        "live-workbench-session"
+      ],
+      "humanStep": false
+    },
+    {
+      "id": "scaffold-a-new-addon",
+      "title": "Scaffold a new addon",
+      "goal": "A new addon folder with a valid .gproj, its Scripts tree, and a pattern applied — compiling and loaded in Workbench.",
+      "triggers": [
+        "new addon",
+        "create a mod",
+        "scaffold a mod",
+        "start a new project",
+        "new reforger mod",
+        "set up an addon",
+        "blank addon"
+      ],
+      "tools": [
+        "mod",
+        "project",
+        "wb_projects",
+        "wb_validate_scripts",
+        "wb_reload",
+        "wb_bridge"
+      ],
+      "seeAlso": [
+        "live-workbench-session",
+        "write-an-enforcescript-component"
+      ],
+      "humanStep": true
+    },
+    {
+      "id": "write-an-enforcescript-component",
+      "title": "Write an EnforceScript component",
+      "goal": "A ScriptComponent that compiles, attaches to an entity, and runs on the lifecycle events you expect.",
+      "triggers": [
+        "write a script",
+        "new enforcescript class",
+        "script component",
+        "add a component to an entity",
+        "write c code",
+        "enforcescript",
+        "script authoring",
+        "new script file",
+        "attach a component"
+      ],
+      "tools": [
+        "script_create",
+        "component_search",
+        "api_search",
+        "project",
+        "wb_projects",
+        "wb_reload",
+        "wb_compile_status",
+        "wb_component"
+      ],
+      "seeAlso": [
+        "replicate-state-to-clients",
+        "live-workbench-session",
+        "add-a-prefab"
+      ],
+      "humanStep": false
+    }
+  ]
+}

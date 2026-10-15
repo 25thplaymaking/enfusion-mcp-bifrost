@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 const resourcesTool = defineWorkbenchTool({
   name: "wb_resources",
@@ -27,7 +28,7 @@ const resourcesTool = defineWorkbenchTool({
       .describe("Required acknowledgement for action=open because it can activate a Workbench window."),
   },
   validate: ({ action, allowForeground }) =>
-    action !== "open" || allowForeground === true
+    action !== "open" || allowForeground === true || foregroundAuthorized()
       ? null
       : "Error: opening a resource can activate Workbench. Pass `allowForeground: true` only when the user explicitly permits foreground window activity.",
   // Resource Manager does not require a loaded World Editor scene.

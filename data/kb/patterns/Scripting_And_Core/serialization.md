@@ -173,3 +173,19 @@ string data2 = dummy.AsString();
 - **`[NonSerialized()]` ignored by `SerializationSave`/`Load`**: Only works with automatic serialization path.
 - **JsonApiStruct child objects must be pre-allocated**: Null registered child → silent skip on expand.
 - **JsonApiStruct multi-type arrays not supported**: Mixed-type arrays are valid JSON but not in EnforceScript.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **`FileHandle.ReadLine` returns 0 for a blank line and -1 at EOF.** `while (f.ReadLine(line) > 0)`
+  stops at the first empty line and truncates hand-edited files; loop on `>= 0` (vanilla
+  `SCR_FileIOHelper.ReadFileContent` loops `> -1`).
+- **Never overwrite an unreadable `$profile:` file.** If a JSON library cannot be read,
+  starting empty and saving on the next write destroys it. Copy it aside, continue empty, and
+  make the library read-only for the session if the copy fails.
+- **On hosted or rented servers nobody creates `$profile:` files.** A feature gated on a
+  server profile JSON was off on every hosted server because the file never existed. Default
+  features on; let the file only switch them off.

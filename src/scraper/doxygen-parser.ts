@@ -267,7 +267,9 @@ function parseMemberTable(
     if (rowClass.startsWith("memitem:")) {
       const returnType = $row.find("td.memItemLeft").text().trim();
       const rightCell = $row.find("td.memItemRight");
-      const nameLink = rightCell.find("a.el");
+      // The first link is the method; later ones are linked parameter types.
+      // Reading all of them glued the types onto the name ("ActivateContextstringint").
+      const nameLink = rightCell.find("a.el").first();
       const methodName = nameLink.text().trim();
 
       if (!methodName) return;

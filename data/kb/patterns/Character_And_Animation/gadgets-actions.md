@@ -109,3 +109,13 @@ class SCR_MyFlashlightAction : ScriptedUserAction
 
 Add to prefab `ActionsManagerComponent → additionalActions`, with a `ParentContextList` entry
 matching the context (e.g. `"lens"`) so it only appears in the right inspect mode.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- `CanBePerformedScript` is evaluated continuously while the action is in view: do not scan
+  inventories, spawn preview entities or rebuild UI there — cache by key and throttle
+  (~250 ms) **(unverified, code-review finding)**.

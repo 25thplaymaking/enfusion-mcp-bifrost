@@ -32,7 +32,7 @@ All editor modules inherit `WBModuleDef`.
 | `action=save` | `Save()` | Native save returned success; verify disk | Module refused, no saveable state, or unnamed World Editor scene (use prefab operations or observed Save As) |
 | `action=executeAction` | `ExecuteAction(path, keepFocus)` | Exact module-local menu action executes | Unknown path, unavailable action, or wrong context |
 
-`keepFocus` defaults to `false` for editor-local actions, but the engine's open-module and open-resource calls provide no focus-control parameter. Those operations, plus arbitrary menu actions, therefore require `allowForeground: true`; callers cannot activate them accidentally during background work. Script compile/reload menu paths are always rejected inside custom handlers and route through `wb_validate_scripts` or `wb_reload`. A returned `false` is an error; Bifrost never presents it as success.
+`keepFocus` defaults to `false` for editor-local actions, but the engine's open-module and open-resource calls provide no focus-control parameter. Those operations, plus arbitrary menu actions, therefore require `allowForeground: true` (or the standing `ENFUSION_ALLOW_FOREGROUND=1` server flag); callers cannot activate them accidentally during background work. Script compile/reload menu paths are always rejected inside custom handlers and route through `wb_validate_scripts` or `wb_reload`. A returned `false` is an error; Bifrost never presents it as success.
 
 New `NetApiHandler` class names register when Workbench starts. Editing an existing handler can be reloaded; adding `EMCP_WB_EditorModule` requires one restart of the existing Workbench before first use. Bifrost never launches a duplicate instance to force this.
 
@@ -157,7 +157,7 @@ Bifrost supports open/state/resource/save/action control but does not fabricate 
 - Ordinary tools fail fast and never auto-launch Workbench.
 - Only explicit `wb_launch` may install handlers or launch.
 - Existing Workbench is reused; no duplicate/headless instance is created.
-- Editor actions default `keepFocus=false`.
+- Editor actions default `keepFocus=false`; a server-env flag `ENFUSION_ALLOW_FOREGROUND=1` grants standing foreground permission so open/openResource/executeAction no longer require a per-call `allowForeground: true`.
 - Handler error responses become MCP errors.
 - Uppercase native `ERROR`, blocked mode guards, and unconfirmed save timeouts are errors too; common tools include structured engine data and outcomes.
 - Destructive global menu paths stay blocked.

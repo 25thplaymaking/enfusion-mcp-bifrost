@@ -1,6 +1,7 @@
 import { loadIndex } from "./loader.js";
 import type { ClassInfo, MethodInfo, EnumInfo, PropertyInfo, WikiPage, GroupInfo } from "./types.js";
 import { nameScore, fuzzyNameScore } from "../utils/fuzzy.js";
+import { normalizeWikiTitle, rankWiki, type WikiHit } from "./wiki-sections.js";
 
 export interface MethodSearchResult {
   className: string;
@@ -478,33 +479,23 @@ export class SearchEngine {
   }
 
   searchWiki(query: string, limit = 5): WikiPage[] {
-    this.ensureLoaded();
-    const tokens = query.toLowerCase().split(/\s+/);
-    const results: Array<{ page: WikiPage; score: number }> = [];
-
-    for (const page of this.wikiPages) {
-      const titleLower = page.title.toLowerCase();
-      const contentLower = page.content.toLowerCase();
-      let score = 0;
-
-      for (const token of tokens) {
-        if (titleLower.includes(token)) score += 10;
-        if (contentLower.includes(token)) score += 1;
-      }
-
-      if (score > 0) {
-        results.push({ page, score });
-      }
-    }
-
-    results.sort((a, b) => b.score - a.score);
-    return results.slice(0, limit).map((r) => r.page);
+    return this.searchWikiSections(query, limit).map((h) => h.page);
   }
 
-  /** Look up a wiki page by exact title (case-insensitive). */
+  /** Ranked pages, each with the section that best matches the query. */
+  searchWikiSections(query: string, limit = 5): WikiHit[] {
+    this.ensureLoaded();
+    return rankWiki(this.wikiPages, query, limit);
+  }
+
+  /**
+   * Look up a wiki page by title (case-insensitive). Also accepts the wiki's own
+   * forms: "Arma_Reforger:Scripting:_Keywords" or a community.bistudio.com URL.
+   */
   getWikiPage(title: string): WikiPage | undefined {
     this.ensureLoaded();
-    return this.wikiPageByTitle.get(title.toLowerCase());
+    return this.wikiPageByTitle.get(title.toLowerCase()) ??
+      this.wikiPageByTitle.get(normalizeWikiTitle(title).toLowerCase());
   }
 
   getGroups(): GroupInfo[] {
