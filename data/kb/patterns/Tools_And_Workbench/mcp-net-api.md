@@ -8,8 +8,17 @@ Patterns for extending the EnfusionMCP Workbench bridge with custom NetApiHandle
 
 - Handler scripts live in `Scripts/WorkbenchGame/EnfusionMCP/` inside the mod being tested.
 - They are **injected by wb_launch** (copied from the npm package) and must be present at Workbench startup.
-- **Hot reload does NOT work** for NetApiHandler subclasses — only full Workbench restart picks up changes.
-- After editing a handler `.c` file, close Workbench, then call `wb_launch` again.
+- **A handler patch is picked up by a native script reload** (verified 2026-09-27: a new
+  `wb_layers create` action worked after `wb_validate_scripts` + `wb_reload`). Older notes saying
+  only a full restart works are out of date. A Workbench restart also recompiles handlers from disk.
+- **Declare every new request field with its `RegV("...")` line** — a field without one is
+  silently ignored, so the new parameter looks like it does nothing.
+- `wb_bridge install` reporting all handler files byte-identical does not prove a handler
+  implements an action the MCP advertises; an unimplemented action answers `Unknown action`.
+- **Never trigger a script reload from inside a custom handler's reply** — use the native
+  reload (`wb_reload`). Remove temporary test handlers before production validation.
+- The MCP has no packed-resource GUID index: it cannot resolve a bare `{GUID}` to a path.
+  Use `asset_search` by name, or read the GUID from a prefab that references the resource.
 
 ---
 

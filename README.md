@@ -1,62 +1,51 @@
-# enfusion-mcp
+# Bifrost Enfusion MCP
 
-MCP server for Arma Reforger modding. Describe what you want to build, and Claude handles everything — API research, code generation, project scaffolding, Workbench control, and in-editor testing. Zero modding experience required.
+Focus-safe MCP suite for Arma Reforger modding: official API/Wiki research, packed-game inspection, authoring, Workbench control, structured compile feedback, and in-editor testing in one direct process.
+
+Built and maintained with a lot of labour and love by the Task Force Halberd team, through months of real Bifrost mod work. It grew out of the MIT-licensed enfusion-mcp by Articulated7 and the community forks that followed it (see [Credits](#credits)).
+
+See the [Bifrost Workbench Editor Operations Manual](docs/WORKBENCH_EDITOR_OPERATIONS.md) for the reviewed editor APIs, asset formats, operation outcomes, focus behavior, evidence, and known engine boundaries.
+
+For Codex/Astra, see the [Codex workflow](docs/CODEX_WORKBENCH.md). Start with `wb_capabilities` (`live=true` for actual project/editor state), use `project` for source inspection and precise edits, and `wb_batch` for ordered live operations.
+
+The [native bridge guide](docs/NATIVE_AGENT_WORKFLOW.md) covers inspect/navigate/edit access across ten Workbench modules, exact entity and property targets, unsaved script buffers, debugger controls and runtime logs, and local documentation deployment. Install or update the bridge in the verified loaded addon with `wb_bridge`; no additional service is needed.
 
 ## Install
 
-### Claude Code (Windows)
+### Local Windows installation
 
-```bash
-claude mcp add --scope user enfusion-mcp -- cmd /c npx -y enfusion-mcp
+```powershell
+npm ci
+npm run build
 ```
 
-### Claude Code (macOS / Linux)
-
-```bash
-claude mcp add --scope user enfusion-mcp -- npx -y enfusion-mcp
-```
-
-Restart Claude Code. Verify with `/mcp`.
-
-### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-**Windows:**
+Register the built server with a direct Node executable. Do not use a `cmd`, `npx`, or shell wrapper:
 
 ```json
 {
   "mcpServers": {
     "enfusion-mcp": {
-      "command": "cmd",
-      "args": ["/c", "npx", "-y", "enfusion-mcp"]
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": ["C:\\path\\to\\enfusion-mcp-bifrost\\dist\\index.js"],
+      "env": {
+        "ENFUSION_WORKBENCH_PATH": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Arma Reforger Tools\\Workbench",
+        "ENFUSION_GAME_PATH": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Arma Reforger",
+        "ENFUSION_PROJECT_PATH": "C:\\Users\\<you>\\Documents\\My Games\\ArmaReforgerWorkbench\\addons",
+        "ENFUSION_WORKBENCH_PROFILE": "C:\\Users\\<you>\\Documents\\My Games\\ArmaReforgerWorkbench",
+        "ENFUSION_DEFAULT_MOD": "YourMod"
+      }
     }
   }
 }
 ```
-
-**macOS / Linux:**
-
-```json
-{
-  "mcpServers": {
-    "enfusion-mcp": {
-      "command": "npx",
-      "args": ["-y", "enfusion-mcp"]
-    }
-  }
-}
-```
-
-Restart Claude Desktop. Verify with `/mcp`.
 
 ### Workbench Plugin
 
-The live Workbench tools (`wb_*`) require handler scripts running inside Workbench. These ship with the package in `mod/Scripts/WorkbenchGame/EnfusionMCP/` and are installed automatically when Claude launches Workbench via `wb_launch`.
+The live Workbench tools (`wb_*`) require handler scripts running inside Workbench. These ship in `mod/Scripts/WorkbenchGame/EnfusionMCP/`. Ordinary calls fail fast and never launch or restart Workbench; only an explicit `wb_launch` is allowed to launch it.
 
 ## Usage
 
-Just ask Claude to make a mod:
+Ask Codex/Astra or another MCP client to work on a mod:
 
 - *"Create a HUD widget that shows player health and stamina"*
 - *"Make a zombie survival game mode with wave spawning"*
@@ -71,12 +60,12 @@ Or use the guided prompts for structured workflows:
 | `/create-mod` | Full guided mod creation — from idea to built addon |
 | `/modify-mod` | Modify or extend an existing mod project |
 
-Claude will:
+The supported workflow is:
 
-1. **Assess complexity** — simple mods are built in one pass; large mods (e.g., a DayZ-style overhaul) get broken into phases with a plan you approve before any code is written
+1. **Establish the target** — inspect live projects and capabilities, then choose the smallest complete implementation
 2. **Research** the Enfusion API (8,693 indexed classes), the Arma Reforger wiki (250+ guides), and base game assets (read directly from `.pak` archives) to find the right approach
 3. **Scaffold** the full addon — `.gproj`, scripts, prefabs, configs, UI layouts
-4. **Launch Workbench** if it's not already running
+4. **Reuse the running Workbench** and fail fast if it is unavailable
 5. **Load the project**, reload scripts, register resources
 6. **Validate and build** the addon
 7. **Enter play mode** so you can test in-game
@@ -93,24 +82,105 @@ Work without Workbench running — API search, mod scaffolding, code generation,
 |------|-------------|
 | `api_search` | Search 8,693 Enfusion/Arma Reforger API classes and methods — includes inherited members, enum-like class detection, related sibling classes, and `format: 'tree'` for ASCII inheritance hierarchy visualization |
 | `component_search` | Search ScriptComponent descendants — filter by category (character, vehicle, weapon, damage, inventory, ai, ui, etc.) and event handlers |
-| `wiki_search` | Search 250+ tutorials and guides from the Enfusion engine docs and BI Community Wiki |
+| `wiki_search` | Search 271 current Enfusion/BI Wiki and API pages (264 official Wiki pages with revision metadata) |
 | `wiki_read` | Read the full content of a wiki page by title — no truncation, includes code examples |
-| `wb_knowledge` | Search the bundled Arma Reforger modding knowledge base — distilled patterns covering scripting, audio, weapons, vehicles, AI, UI, game modes, animation, and more |
-| `game_browse` | Browse base game files — loose files and `.pak` archives transparently |
-| `game_read` | Read base game files — scripts, prefabs, configs from loose files or `.pak` |
-| `prefab_inspect` | Inspect a prefab's full inheritance chain — merges all components across ancestors, showing which level each value comes from. Solves the problem of `.et` files only showing overrides. |
-| `asset_search` | Search game assets by name across loose files and `.pak` archives |
-| `project_browse` | List files in a mod project directory |
-| `project_read` | Read any project file |
-| `project_write` | Write or update project files |
-| `mod_create` | Scaffold a complete addon with directory structure and `.gproj` |
-| `script_create` | Generate Enforce Script (`.c`) files — 7 types: component, gamemode, action, entity, manager, modded, basic. Auto-fetches overridable parent methods from API index when `parentClass` is specified |
-| `prefab_create` | Generate Entity Template (`.et`) prefabs — 7 types: character, vehicle, weapon, spawnpoint, gamemode, interactive, generic |
-| `layout_create` | Generate UI layout (`.layout`) files — 5 types: hud, menu, dialog, list, custom |
-| `config_create` | Generate config files — factions, missions, entity catalogs, editor placeables |
-| `server_config` | Generate dedicated server config for local testing |
-| `mod_validate` | Validate project structure, scripts, prefabs, configs, and naming |
-| `mod_build` | Build the addon using the Workbench CLI |
+
+### Tools (63 total: 26 offline, 37 live)
+
+**Start every authoring task with `wb_playbook`.** It returns the preconditions,
+the ordered tool calls, the traps that fail silently, and how to verify. Use
+`wb_knowledge` for engine facts once you know the task.
+
+**The `wb_` prefix does not mean "needs Workbench".** `wb_knowledge` and
+`wb_playbook` are `wb_`-prefixed and work entirely offline.
+
+#### Procedure (start here)
+
+| Tool | What it does |
+|------|-------------|
+| `wb_playbook` | **START HERE.** Task-oriented playbook: preconditions, ordered tool calls, silent-failure traps, verification. `query="catalogue"` lists all 19 |
+| `wb_knowledge` | Subject-oriented KB: engine concepts and API detail across 48 pattern docs |
+
+#### Reference / research
+
+| Tool | What it does |
+|------|-------------|
+| `api_search` | Search the Enfusion/Arma script API by class, method, or keyword (8693 classes indexed) |
+| `component_search` | Find ScriptComponent descendants — the building blocks you attach to entities |
+| `wiki_search` | Search the pre-downloaded BI wiki (271 pages) |
+| `wiki_read` | Read a full wiki page by title |
+| `game_browse` | Browse base game data files (scripts, prefabs, configs) |
+| `game_read` | Read a file from the base game data |
+| `asset_search` | Search for base game assets (prefabs, models, textures, scripts, configs) by name |
+
+#### Authoring (offline)
+
+| Tool | What it does |
+|------|-------------|
+| `mod` | Addon management — `action`: `create` (scaffold), `validate` (no build needed), `build` (needs local Steam Diag Workbench) |
+| `script_create` | Create a new Enforce Script (.c) file for an Arma Reforger mod |
+| `prefab` | Prefab `.et` work — `action=create` from a recipe type, or `action=inspect` for the full inheritance chain |
+| `config_create` | Create a config (.conf) file for an Arma Reforger mod |
+| `server_config` | Generate a dedicated server config (server.json) for testing an Arma Reforger mod locally |
+| `layout_create` | Create a UI layout (.layout) file for an Arma Reforger mod |
+| `layout_recipe` | Generate a UI layout (.layout) from a proven blueprint recipe (extracted from real Arma Reforger HUDs) |
+| `menu_create` | Scaffold a complete custom Arma Reforger menu: the Enforce class (.c) with the modded ChimeraMenuPreset enum entry and... |
+| `gamemode_scaffold` | Scaffold a modded SCR_GameModeCampaign for Conflict by composing cookbook-verified feature recipes (battle_prep, seedi... |
+| `scenario_create` | Create a scenario element in the live scene (objective, spawnpoint, ...) |
+| `scenario_create_conflict` | Generate a full Conflict multiplayer scenario as up to 7 files |
+| `animation_graph` | Author and inspect vehicle animation graphs (AGF/AGR) |
+| `editor_asset` | Inspect/author Workbench graph-editor assets (ACP/PTC/PAP/SIGA) |
+| `building_setup` | Set up a destructible building from a Blender export manifest |
+| `game_duplicate` | Duplicate a base-game prefab/config into your mod for editing |
+| `project` | Browse, read, search, write, or precisely edit Workbench source files, including audio/particle/animation graphs, mate... |
+| `workshop_info` | Read Workshop metadata (mod ID, GUID, dependencies) from a `.gproj` |
+
+#### Project files
+
+| Tool | What it does |
+|------|-------------|
+
+#### Live Workbench (needs editor open + focused)
+
+| Tool | What it does |
+|------|-------------|
+| `wb_capabilities` | **Start here for live Workbench work.** Editor/source/tool coverage and read-only project discovery |
+| `wb_state` | Get a full snapshot of the current Workbench state |
+| `wb_connect` | Test connection to Arma Reforger Workbench |
+| `wb_diagnose` | Full diagnostic of the MCP <-> Workbench connection with a verdict |
+| `wb_launch` | Launch Workbench (opt-in) |
+| `wb_docs` | List/read the bundled agent Workbench guides |
+| `wb_bridge` | Inspect/install the native MCP handler plugin in a verified loaded addon |
+| `wb_debug` | Bounded runtime logs, resumable cursors, source context, native debugger panes |
+| `wb_cleanup` | Remove temporary EnfusionMCP handler scripts |
+| `wb_reload` | Reload and compile scripts or plugins in the running Workbench, then return structured compile errors from Workbench's... |
+| `wb_validate_scripts` | Run Workbench's built-in ValidateScripts NET API endpoint and return its structured success flag, errors, warnings, fi... |
+| `wb_compile_status` | Read the latest Workbench script compilation result from its authoritative script.log |
+| `wb_script_editor` | Read the live Script Editor buffer (including unsaved changes) and edit exact lines with conflict checks |
+| `wb_batch` | Run up to 25 existing Workbench tools in order (not atomic) |
+| `wb_projects` | Query actual loaded addon IDs, locate the loaded project containing an absolute filesystem path, or open a .gproj with... |
+| `wb_open_resource` | Open a resource file in the appropriate Workbench editor |
+| `wb_play` | Switch Workbench to game (play) mode |
+| `wb_stop` | Stop game mode and return to the World Editor |
+| `wb_save` | Save the current world in the World Editor |
+| `wb_undo_redo` | Undo or redo the last action in the World Editor |
+| `wb_execute_action` | Execute a Workbench menu action by its menu path |
+| `wb_editor_module` | Shared control for every Reforger Workbench editor |
+| `wb_entity_create` | Create a new entity in the World Editor from a prefab |
+| `wb_entity_list` | List entities in the current world |
+| `wb_entity_inspect` | Get detailed information about a specific entity, including its components, properties, position, and children |
+| `wb_entity_modify` | Modify an entity in the World Editor |
+| `wb_entity_delete` | Delete an entity from the World Editor by name |
+| `wb_entity_select` | Manage entity selection in the World Editor |
+| `wb_entity_duplicate` | Duplicate a scene entity (including locked base-game prefab instances) into your mod folder, assigning it a new resour... |
+| `wb_component` | Manage components on an entity in the World Editor |
+| `wb_prefabs` | Create/save Workbench prefab templates, look up registered GUIDs, or discover prefab source files in a directory on th... |
+| `wb_resources` | Manage Workbench resources |
+| `wb_layers` | Manage layers in the World Editor |
+| `wb_terrain` | Query terrain information |
+| `wb_validate` | Validate a material or texture resource using the Workbench's built-in validators |
+| `wb_clipboard` | Clipboard operations in the World Editor |
+| `wb_localization` | Manage localization entries in the Workbench Localization Editor |
 
 ### Live Workbench Tools
 
@@ -118,7 +188,13 @@ Control a running Workbench instance over TCP. Requires the handler scripts inst
 
 | Tool | What it does |
 |------|-------------|
+| `wb_capabilities` | Editor/source/tool coverage, batch eligibility, and optional read-only live project/module discovery |
+| `wb_bridge` | Inspect/install the native plugin in a verified loaded addon without duplicating Workbench |
+| `wb_docs` | Read or deploy bundled local workflow documentation |
+| `wb_debug` | Runtime logs and cursors, source context, debugger panes and documented control dispatch |
+| `wb_batch` | Up to 25 ordered existing operations, whole-plan preflight, structured partial results, stop on error |
 | `wb_launch` | Start Workbench if not running, wait for NET API |
+| `wb_cleanup` | Remove injected MCP handlers from one mod or every detected addon before publishing |
 | `wb_connect` | Test connection to Workbench |
 | `wb_state` | Full state snapshot — mode, world, entity count, selection |
 | `wb_play` | Switch to game mode (Play in Editor) |
@@ -126,8 +202,10 @@ Control a running Workbench instance over TCP. Requires the handler scripts inst
 | `wb_save` | Save the current world |
 | `wb_undo_redo` | Undo or redo the last action |
 | `wb_open_resource` | Open a resource in its editor |
-| `wb_reload` | Reload scripts or plugins without restarting |
-| `wb_execute_action` | Run any Workbench menu action by path |
+| `wb_reload` | Reload/compile scripts without focus and return file/line/message diagnostics from Workbench's script.log |
+| `wb_compile_status` | Read the latest structured compile result without modifying or focusing Workbench |
+| `wb_diagnose` | Read-only connection, handler, path, and editor-mode diagnosis |
+| `wb_execute_action` | Run supported menu actions with foreground acknowledgement; unsafe lifecycle paths remain blocked |
 | `wb_entity_create` | Create entity from prefab at a position |
 | `wb_entity_delete` | Delete entity by name |
 | `wb_entity_list` | List and search entities in the world |
@@ -142,12 +220,12 @@ Control a running Workbench instance over TCP. Requires the handler scripts inst
 | `wb_clipboard` | Copy, cut, paste, duplicate entities |
 | `wb_script_editor` | Read/write lines in the open script file |
 | `wb_localization` | String table CRUD for localization |
-| `wb_projects` | List loaded projects, open `.gproj` files |
+| `wb_projects` | List actual loaded project IDs, locate owner by absolute path, open `.gproj` with foreground acknowledgement |
 | `wb_validate` | Material and texture validation |
 
 ### Mod Patterns
 
-10 built-in templates for `mod_create`:
+10 built-in templates, applied via `mod` with `action: "create"` and `pattern`:
 
 `game-mode` `custom-faction` `custom-action` `spawn-system` `custom-component` `modded-behavior` `admin-tool` `custom-vehicle` `weapon-reskin` `hud-widget`
 
@@ -167,8 +245,8 @@ All optional — sensible defaults are used when nothing is set. Configuration i
 {
   "mcpServers": {
     "enfusion-mcp": {
-      "command": "npx",
-      "args": ["-y", "enfusion-mcp"],
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": ["C:\\path\\to\\enfusion-mcp-bifrost\\dist\\index.js"],
       "env": {
         "ENFUSION_WORKBENCH_PATH": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Arma Reforger Tools",
         "ENFUSION_PROJECT_PATH": "C:\\Users\\you\\Documents\\My Games\\ArmaReforgerWorkbench\\addons"
@@ -203,19 +281,28 @@ Rarely needed — the defaults are correct for almost everyone.
 ## Requirements
 
 - **Node.js 20+**
-- **Arma Reforger Tools** (Steam) — needed for `mod_build` and all `wb_*` tools
+- **Arma Reforger Tools** (Steam) — needed for the live `wb_*` bridge tools, and for
+  `mod` with `action: "build"` (which additionally needs the *Profiling Build* beta
+  for `ArmaReforgerWorkbenchSteamDiag.exe`). The 26 offline tools work without it.
 
 ## Development
 
 ```bash
-git clone https://github.com/steffenbk/enfusion-mcp-BK.git
-cd enfusion-mcp-BK
+git clone https://github.com/25thplaymaking/enfusion-mcp-bifrost.git
+cd enfusion-mcp-bifrost
 npm install
 npm run scrape   # Build API index from Workbench docs
 npm run build
-npm test         # 187 tests
+npm test
 ```
+
+## Credits
+
+- **Articulated7**: the original enfusion-mcp, which this project started from.
+- **steffenbk** ([enfusion-mcp-BK](https://github.com/steffenbk/enfusion-mcp-BK)): the knowledge base, scenario and menu tooling, and many bridge and PAK fixes.
+- **arma-reforger-competitive** ([arma-enfusion-mcp](https://github.com/arma-reforger-competitive/arma-enfusion-mcp)): the Workbench tool envelope and the launch/status rework.
+- **Task Force Halberd**: the Bifrost Workbench editor suite, native inspection and editing across ten editor modules, playbooks, the agent tool index, and the fixes since.
 
 ## License
 
-MIT
+MIT. The original copyright notice is kept in [LICENSE](LICENSE).

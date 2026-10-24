@@ -1,5 +1,10 @@
 # Conflict Seeding System
 
+> **Mod system, not base game.** Everything here (`IRON_*` classes, `E_SeedingRestrictionZoneBase.et`,
+> the seeding manager) comes from a workshop mod and needs that mod as a dependency. Checked
+> against the base-game data 2026-10-11.
+
+
 Seeding mode keeps a Conflict server alive during low-population periods by restricting players to the MOB area and spawning AI patrols. Once enough players connect, the restriction lifts permanently and normal gameplay begins.
 
 ---

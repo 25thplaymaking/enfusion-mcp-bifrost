@@ -34,7 +34,7 @@ describe("wb_prefabs — validate", () => {
 
   it("requires searchPath for locate", () => {
     expect(t.validate!({ action: "locate" })).toContain("Provide `searchPath`");
-    expect(t.validate!({ action: "locate", searchPath: "Prefabs/" })).toBeNull();
+    expect(t.validate!({ action: "locate", searchPath: "C:/mods/MyMod/Prefabs/" })).toBeNull();
   });
 
   it("requires entityName for getAncestor", () => {

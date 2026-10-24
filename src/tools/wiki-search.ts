@@ -1,6 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SearchEngine } from "../index/search-engine.js";
+import { splitSections } from "../index/wiki-sections.js";
+
+const sourceLabel = (source: string) =>
+  source === "bistudio-wiki" ? "BI Community Wiki" : source === "enfusion" ? "Enfusion Engine docs" : "Arma Reforger docs";
 
 export function registerWikiSearch(server: McpServer, searchEngine: SearchEngine): void {
   server.registerTool(
@@ -9,13 +13,11 @@ export function registerWikiSearch(server: McpServer, searchEngine: SearchEngine
       description:
         "Search pre-downloaded Bohemia Interactive Wiki (BIKI) content, tutorials, and guides about Enfusion engine concepts, scripting patterns, and Arma Reforger modding topics. " +
         "Always use this tool instead of trying to access the wiki via the web — all wiki content is already available here. " +
-        "Results are previews — use wiki_read with the page title to get the full content including code examples.",
+        "Each result shows the section that best matches the query; use wiki_read with the title (and optionally section) for more.",
       inputSchema: {
         query: z
           .string()
-          .describe(
-            "Topic to search for (e.g., 'replication', 'event system', 'world systems')"
-          ),
+          .describe("Topic to search for (e.g., 'replication', 'event system', 'world systems')"),
         limit: z
           .number()
           .min(1)
@@ -25,7 +27,7 @@ export function registerWikiSearch(server: McpServer, searchEngine: SearchEngine
       },
     },
     async ({ query, limit }) => {
-      const results = searchEngine.searchWiki(query, limit);
+      const results = searchEngine.searchWikiSections(query, limit);
 
       if (results.length === 0) {
         return {
@@ -38,29 +40,26 @@ export function registerWikiSearch(server: McpServer, searchEngine: SearchEngine
         };
       }
 
-      const parts = results.map((page) => {
+      // One result gets room for a whole section; several get a preview each.
+      const maxLength = results.length === 1 ? 8000 : 1800;
+      const parts = results.map(({ page, section }) => {
         const lines: string[] = [];
         lines.push(`## ${page.title}`);
-        const sourceLabel =
-          page.source === "bistudio-wiki"
-            ? "BI Community Wiki"
-            : page.source === "enfusion"
-              ? "Enfusion Engine docs"
-              : "Arma Reforger docs";
-        lines.push(`Source: ${sourceLabel}${page.url ? ` — ${page.url}` : ""}`);
+        lines.push(`Source: ${sourceLabel(page.source)}${page.url ? ` — ${page.url}` : ""}`);
+        const others = splitSections(page.content).map((s) => s.heading).filter((h) => h && h !== section.heading);
+        if (section.heading) lines.push(`Best match: section "${section.heading}"`);
         lines.push("");
-
-        // Show more content when only 1 result matches; otherwise truncate to preview length
-        const MAX_LENGTH = results.length === 1 ? 8000 : 2000;
-        if (page.content.length <= MAX_LENGTH) {
-          lines.push(page.content);
+        const body = section.text.trim();
+        if (body.length <= maxLength) {
+          lines.push(body);
         } else {
-          lines.push(page.content.slice(0, MAX_LENGTH));
-          lines.push(
-            `\n... (truncated, ${page.content.length} chars total — use wiki_read to get the full page)`
-          );
+          lines.push(body.slice(0, maxLength));
+          lines.push(`\n... (section continues, ${body.length} chars — wiki_read title="${page.title}"${section.heading ? ` section="${section.heading}"` : ""})`);
         }
-
+        if (others.length) {
+          const toc = others.slice(0, 25).join(" · ");
+          lines.push(`\nOther sections: ${toc}${others.length > 25 ? " · …" : ""}`);
+        }
         return lines.join("\n");
       });
 

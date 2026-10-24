@@ -11,6 +11,7 @@ import { registerConfigCreate } from "./tools/config-create.js";
 import { registerServerConfig } from "./tools/server-config.js";
 import { registerLayoutCreate } from "./tools/layout-create.js";
 import { registerLayoutRecipe } from "./tools/layout-recipe.js";
+import { registerMenuCreate } from "./tools/menu-create.js";
 import { registerGamemodeScaffold } from "./tools/gamemode-scaffold.js";
 import { registerCreateModPrompt } from "./prompts/create-mod.js";
 import { registerModifyModPrompt } from "./prompts/modify-mod.js";
@@ -24,8 +25,11 @@ import { registerWbLaunch } from "./tools/wb-launch.js";
 import { connectTools } from "./tools/wb-connect.js";
 import { registerWbDiagnose } from "./tools/wb-diagnose.js";
 import { registerWbReload } from "./tools/wb-reload.js";
+import { registerWbCompileStatus } from "./tools/wb-compile-status.js";
 import { registerWbEditorTools } from "./tools/wb-editor.js";
 import { editorActionTools } from "./tools/wb-editor-actions.js";
+import { editorModuleTools } from "./tools/wb-editor-module.js";
+import { scriptCompileTools } from "./tools/wb-script-compile.js";
 import { executeActionTools } from "./tools/wb-execute-action.js";
 import { registerWorkbenchTools } from "./workbench/define-tool.js";
 import { entityTools } from "./tools/wb-entities.js";
@@ -50,7 +54,12 @@ import { registerScenarioTools } from "./tools/wb-scenario.js";
 import { registerScenarioCreate } from "./tools/scenario-create.js";
 import { registerAnimationGraph } from "./tools/animation-graph.js";
 import { registerWbKnowledge } from "./tools/wb-knowledge.js";
+import { registerWbPlaybook } from "./tools/wb-playbook.js";
 import { registerBuildingSetup } from "./tools/building-setup.js";
+import { registerEditorAssets } from "./tools/editor-assets.js";
+import { registerWorkbenchWorkflows } from "./tools/wb-workflows.js";
+import { registerWbBridge } from "./tools/wb-bridge.js";
+import { registerWbDebug } from "./tools/wb-debug.js";
 import type { Config } from "./config.js";
 
 export function registerTools(server: McpServer, config: Config): void {
@@ -74,6 +83,7 @@ export function registerTools(server: McpServer, config: Config): void {
   registerServerConfig(server, config);
   registerLayoutCreate(server, config);
   registerLayoutRecipe(server, config);
+  registerMenuCreate(server, config);
   registerGamemodeScaffold(server, config);
 
   // Workbench Live Control tools (Phase 4)
@@ -85,11 +95,14 @@ export function registerTools(server: McpServer, config: Config): void {
   // Orchestration tools stay hand-written (poll loops / side effects) and
   // register themselves; see ADR-0007's coverage boundary.
   registerWbLaunch(server, config, wbClient);
+  registerWbBridge(server, config, wbClient);
+  registerWbDebug(server, config, wbClient);
   registerWbDiagnose(server, wbClient);
-  registerWbReload(server, wbClient);
+  registerWbReload(server, config, wbClient);
+  registerWbCompileStatus(server, config);
   registerWbEditorTools(server, wbClient);
   // Every covered wb_* tool — one greppable list, one envelope.
-  registerWorkbenchTools(server, wbClient, [
+  const workbenchTools = [
     ...entityTools,
     ...resourceTools,
     ...prefabTools,
@@ -105,7 +118,11 @@ export function registerTools(server: McpServer, config: Config): void {
     ...stateTools,
     ...connectTools,
     ...editorActionTools,
-  ]);
+    ...editorModuleTools,
+    ...scriptCompileTools,
+  ];
+  registerWorkbenchTools(server, wbClient, workbenchTools);
+  registerWorkbenchWorkflows(server, config, wbClient, workbenchTools);
   registerScenarioTools(server, wbClient);
   registerScenarioCreate(server, config);
 
@@ -118,7 +135,9 @@ export function registerTools(server: McpServer, config: Config): void {
   registerWorkshopInfo(server, config);
   registerAnimationGraph(server, config);
   registerWbKnowledge(server);
+  registerWbPlaybook(server);
   registerBuildingSetup(server, config);
+  registerEditorAssets(server, config);
 
   // MCP Prompts
   registerCreateModPrompt(server, patterns);

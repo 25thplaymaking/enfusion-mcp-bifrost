@@ -147,3 +147,18 @@ m_aShapes.Clear();
 ```
 
 **Pitfall:** Debug shape disappears immediately if `ref Shape` goes out of scope. Always store in a member array.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Collision has two layer levels.** `Get/SetInteractionLayer` is the body mask;
+  `Get/SetGeomInteractionLayer` (count with `GetNumGeoms`) are per-geometry masks. Zeroing
+  only the body mask leaves building hitboxes solid — save, zero and restore both.
+- Short (50 ms) velocity readbacks of a script-driven body flip by a few tenths between
+  physics substeps; measure over windows of at least 0.25 s.
+- A character made a hierarchy child (`AddChild` + `SetLocalTransform`) is held exactly even
+  while the parent moves; a parented airborne character's physics can sleep and must be woken
+  (`SetActive(ActiveState.ACTIVE)`) at release. Details and traps: *Helicopter & Air Scripting*.

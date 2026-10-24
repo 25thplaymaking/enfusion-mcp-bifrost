@@ -81,12 +81,17 @@ class EMCP_WB_ExecuteAction : NetApiHandler
 			return resp;
 		}
 
-		bool result = worldEditor.ExecuteAction(parts);
-		resp.status = "ok";
+		bool result = worldEditor.ExecuteAction(parts, false);
 		if (result)
+		{
+			resp.status = "ok";
 			resp.message = "Action executed successfully";
+		}
 		else
+		{
+			resp.status = "error";
 			resp.message = "ExecuteAction returned false (action may not exist or is unavailable)";
+		}
 
 		return resp;
 	}

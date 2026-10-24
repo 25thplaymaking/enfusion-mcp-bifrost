@@ -44,6 +44,7 @@ export interface FormatterResult {
 export interface ToolResponse {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
+  structuredContent?: Record<string, unknown>;
   /** CallToolResult carries an open index signature; mirror it so the SDK accepts us. */
   [key: string]: unknown;
 }
@@ -124,7 +125,8 @@ export async function runWorkbenchTool(
     if (tool.validate) {
       const usageError = tool.validate(input);
       if (usageError) {
-        return { content: text(usageError + footer()), isError: true };
+        return { content: text(usageError + footer()), isError: true,
+          structuredContent: { tool: tool.name, outcome: "blocked", message: usageError } };
       }
     }
 
@@ -141,7 +143,8 @@ export async function runWorkbenchTool(
             ? await requireEditMode(client, action)
             : await requirePlayMode(client, action);
         if (block) {
-          return { content: text(block + footer()) };
+          return { content: text(block + footer()), isError: true,
+            structuredContent: { tool: tool.name, outcome: "blocked", message: block } };
         }
       }
     }
@@ -153,10 +156,12 @@ export async function runWorkbenchTool(
     const formatted = tool.formatter({ result, input });
     return {
       content: text(formatted.text + footer()),
+      structuredContent: { tool: tool.name, outcome: formatted.isError ? "error" : "completed", data: result },
       ...(formatted.isError ? { isError: true } : {}),
     };
   } catch (e) {
-    return { content: text(`Error: ${renderError(e)}${footer()}`), isError: true };
+    return { content: text(`Error: ${renderError(e)}${footer()}`), isError: true,
+      structuredContent: { tool: tool.name, outcome: "error", message: renderError(e) } };
   }
 }
 
@@ -169,7 +174,9 @@ export function registerWorkbenchTools(
   for (const tool of tools) {
     server.registerTool(
       tool.name,
-      { description: tool.description, inputSchema: tool.inputSchema },
+      { description: tool.description, inputSchema: tool.inputSchema,
+        outputSchema: { tool: z.string(), outcome: z.enum(["completed", "blocked", "error"]), data: z.unknown().optional(), message: z.string().optional() },
+      },
       async (input: Record<string, unknown>) => runWorkbenchTool(tool, input, client)
     );
   }

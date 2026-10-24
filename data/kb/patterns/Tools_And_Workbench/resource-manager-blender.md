@@ -409,3 +409,16 @@ Runs in Object Mode on selected mesh objects. Results go to Blender Info Log (ho
 - **EBT update**: Must fully remove old addon and restart Blender; partial installs leave residual memory that breaks new install.
 - **FBX Blender duplicate names**: Dots stripped on import — use unique names.
 - **Center of mass**: If no `COM_` dummy present, engine places it at 0,0,0.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Woven or lattice alpha cards vanish at distance** unless their `_A` texture uses a
+  coverage-preserving mip function (`FoliageAlpha*`) at import — the mesh disappeared from mip
+  4–5 otherwise.
+- **Texture channel contract:** `_BCR` = RGB albedo + roughness in A. `_NMO` = R normal X,
+  G normal Y (DirectX, -Y), B metalness, A ambient occlusion. Native metadata uses four-channel
+  `ColorHQCompression`; do not use an RG-only compression that discards B and A.

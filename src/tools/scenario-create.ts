@@ -57,7 +57,7 @@ export function registerScenarioCreate(server: McpServer, config: Config): void 
         "CAH.layer with capture zones for major bases, Defenders.layer with patrol defenders, " +
         "AmbientVehicles.layer with civilian vehicle spawns when civVehicleCount > 0). " +
         "This matches the structure used by production Arma Reforger Workshop mods. " +
-        "Generates: GameMode_Seize entity, CampaignFactionManager, military bases with SCR_CampaignSeizingComponent + radio + patrol spawnpoints. " +
+        "Generates: the vanilla Conflict game mode (GameMode_Campaign.et), CampaignFactionManager, military bases with SCR_CampaignSeizingComponent + radio + patrol spawnpoints. " +
         "Known worlds: " + KNOWN_WORLDS.join(", ") + ". " +
         "For custom maps pass the full resource ref as worldName, e.g. '{GUID}worlds/MyMap.ent'. " +
         "After generating, open the .ent file in Workbench to snap entities to terrain.",

@@ -1,10 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createServer, type Server, type Socket } from "node:net";
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import type { Config } from "../../src/config.js";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   WorkbenchClient,
   WorkbenchError,
   classifyCallFailure,
   isLoopbackHost,
+  assertSingleWorkbench,
 } from "../../src/workbench/client.js";
 import {
   decodePascalString,
@@ -22,10 +27,10 @@ import {
 function createMockWorkbench(
   handler: (apiFunc: string, params: Record<string, unknown>) => unknown
 ): { server: Server; port: number; close: () => Promise<void> } {
-  const server = createServer((socket: Socket) => {
+  const server = createServer({ allowHalfOpen: true }, (socket: Socket) => {
     const chunks: Buffer[] = [];
     socket.on("data", (chunk) => chunks.push(chunk));
-    socket.on("end", () => {
+    socket.on("end", async () => {
       try {
         const buf = Buffer.concat(chunks);
 
@@ -41,7 +46,7 @@ function createMockWorkbench(
 
         const parsed = JSON.parse(payload);
         const { APIFunc, ...params } = parsed;
-        const response = handler(APIFunc, params);
+        const response = await handler(APIFunc, params);
         // Match real Workbench format: pascal("Ok") + pascal(JSON)
         const statusBuf = encodePascalString("Ok");
         const payloadBuf = encodePascalString(JSON.stringify(response));
@@ -67,6 +72,49 @@ function createMockWorkbench(
     close: () => new Promise((res) => server.close(() => res())),
   };
 }
+
+describe("native operation ordering and launch recovery", () => {
+  it("rejects duplicate sessions instead of choosing whichever owns the port", () => {
+    expect(() => assertSingleWorkbench([])).not.toThrow();
+    expect(() => assertSingleWorkbench([8036])).not.toThrow();
+    expect(() => assertSingleWorkbench([4872, 8036])).toThrow("No editor command was sent");
+  });
+  it("serializes concurrent requests and continues after a failed request", async () => {
+    let active = 0, maximum = 0;
+    const order: string[] = [];
+    const mock = createMockWorkbench(async name => {
+      maximum = Math.max(maximum, ++active); order.push(name);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        if (name === "failure") throw new Error("native failure");
+        return { status: "ok", name };
+      } finally { active--; }
+    });
+    try {
+      const client = new WorkbenchClient("127.0.0.1", mock.port);
+      const results = await Promise.allSettled([client.call("first"), client.call("failure"), client.call("last")]);
+      expect(results.map(r => r.status)).toEqual(["fulfilled", "rejected", "fulfilled"]);
+      expect(order).toEqual(["first", "failure", "last"]);
+      expect(maximum).toBe(1);
+    } finally { await mock.close(); }
+  });
+  it("preserves a live editor with missing handlers without installing into a default addon", async () => {
+    const root = mkdtempSync(join(tmpdir(), "emcp-existing-editor-"));
+    const calls: string[] = [];
+    const mock = createMockWorkbench(name => {
+      calls.push(name);
+      if (name === "GetLoadedProjects") return { "Loaded Projects": ["ActualAddon"] };
+      throw new Error("Undefined API func");
+    });
+    try {
+      const client = new WorkbenchClient("127.0.0.1", mock.port, { projectPath: root } as Config);
+      await expect(client.ensureRunning()).rejects.toThrow("already running");
+      expect(calls).toEqual(["EMCP_WB_Ping", "GetLoadedProjects"]);
+      await expect(client.call("Missing", {}, { allowLaunch: true })).rejects.toThrow("Undefined API func");
+      expect(readdirSync(root)).toEqual([]);
+    } finally { await mock.close(); rmSync(root, { recursive: true }); }
+  });
+});
 
 describe("WorkbenchClient", () => {
   let mockServer: ReturnType<typeof createMockWorkbench>;
@@ -114,6 +162,35 @@ describe("WorkbenchClient", () => {
     expect(result.count).toBe(2);
     expect(result.entities).toHaveLength(2);
     expect(result.entities[0].name).toBe("Tree_01");
+  });
+
+  it("throws when a handler reports an in-band error", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench(() => ({ status: "error", message: "Entity not found" }));
+    const errorClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+
+    await expect(errorClient.call("EMCP_WB_ModifyEntity")).rejects.toMatchObject({
+      code: "API_ERROR",
+      message: "Entity not found",
+    });
+  });
+
+  it("throws for the uppercase ERROR used by shipped Blender/asset handlers", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench(() => ({ status: "ERROR", message: "Could not find active project" }));
+    const errorClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+    await expect(errorClient.call("LocateProject", { path: "missing" })).rejects.toMatchObject({ code: "API_ERROR", message: "Could not find active project" });
+  });
+
+  it("allows an explicitly optional lookup to tolerate an in-band error", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench(() => ({ status: "error", message: "Optional lookup failed" }));
+    const tolerantClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+
+    const result = await tolerantClient.call<{ status: string }>("OptionalLookup", {}, {
+      tolerateErrorStatus: true,
+    });
+    expect(result.status).toBe("error");
   });
 
   it("ping returns true when server is running", async () => {
@@ -235,6 +312,22 @@ describe("WorkbenchClient", () => {
     expect(stateClient.state.mode).toBe("edit");
   });
 
+  it("clears a cached mode when Workbench has no world loaded", async () => {
+    await mockServer.close();
+    mockServer = createMockWorkbench((apiFunc) => {
+      if (apiFunc === "EMCP_WB_Ping") return { status: "ok", mode: "edit" };
+      if (apiFunc === "EMCP_WB_GetState") return { status: "ok", mode: "no_world" };
+      return { status: "ok" };
+    });
+    const stateClient = new WorkbenchClient("127.0.0.1", mockServer.port);
+
+    await stateClient.call("EMCP_WB_Ping");
+    expect(stateClient.state.mode).toBe("edit");
+    await stateClient.call("EMCP_WB_GetState");
+    expect(stateClient.state.mode).toBe("unknown");
+    expect(stateClient.state.connected).toBe(true);
+  });
+
   it("refreshState updates cached state", async () => {
     await mockServer.close();
     mockServer = createMockWorkbench((apiFunc) => {
@@ -292,6 +385,13 @@ describe("classifyCallFailure", () => {
     expect(hint).toContain("Handler scripts not loaded");
   });
 
+  it("recognises the alternate Workbench undefined-function wording", () => {
+    const hint = classifyCallFailure(
+      new WorkbenchError("not existing Net API function EMCP_WB_Ping", "API_ERROR")
+    );
+    expect(hint).toContain("Handler scripts not loaded");
+  });
+
   it("passes a genuine engine API_ERROR through verbatim", () => {
     const msg = "Workbench error: entity not found";
     expect(classifyCallFailure(new WorkbenchError(msg, "API_ERROR"))).toBe(msg);
@@ -306,6 +406,31 @@ describe("isLoopbackHost", () => {
   });
   it("treats a bridged host as non-loopback", () => {
     expect(isLoopbackHost("172.20.0.1")).toBe(false);
+  });
+});
+
+describe("handler installation", () => {
+  it("refreshes an existing handler bundle instead of trusting one sentinel", () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), "emcp-handler-sync-"));
+    try {
+      const syncClient = new WorkbenchClient("127.0.0.1", 1);
+      const install = (syncClient as unknown as {
+        installHandlerScripts(modDir: string): void;
+      }).installHandlerScripts.bind(syncClient);
+
+      install(tempRoot);
+      const handlerDir = join(tempRoot, "Scripts", "WorkbenchGame", "EnfusionMCP");
+      const pingPath = join(handlerDir, "EMCP_WB_Ping.c");
+      writeFileSync(pingPath, "stale sentinel", "utf-8");
+
+      install(tempRoot);
+
+      expect(readFileSync(pingPath, "utf-8")).not.toBe("stale sentinel");
+      expect(readFileSync(join(handlerDir, "EMCP_WB_GetCameraPos.c"), "utf-8"))
+        .toContain("EMCP_WB_GetCameraPos");
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true });
+    }
   });
 });
 

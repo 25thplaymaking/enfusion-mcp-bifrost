@@ -223,3 +223,22 @@ SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 SCR_FactionManager factionManager = SCR_FactionManager.Cast(GetGame().GetFactionManager());
 SCR_LoadoutManager loadoutManager = GetGame().GetLoadoutManager();
 ```
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Modded catalogues are big** (1,169–3,095 entries on real servers). O(n²) dedupe or a sort
+  that builds strings per comparison froze the editor for 1–1.3 s on every GM editor open; a
+  shared per-world catalogue with map lookups cut it to ~60 ms.
+- **Batch draw calls.** A GM overlay cost 2.66 ms/frame until geometry was cached and each
+  shape drawn as one polyline; a 24-segment world ring per unit cost ~48 projections per
+  frame, a screen-space circle costs 2.
+- **Average FPS hides spikes**: server telemetry with a high average still had 500 ms hitches.
+  Look at maximum frame time per record.
+- **Do not print at default level in ticks or per RPC** on servers — gate behind a debug flag
+  or `LogLevel.DEBUG`.
+- World time stops while a scenario is paused; use `System.GetTickCount()` for real-time
+  windows.

@@ -326,3 +326,19 @@ Named layers: `Static`, `Dynamic`, `Character`, `CharCollide`, `CharNoCollide`, 
 | Vault/Climb threshold | — | — | 145 |
 
 Vehicles: small clearance ≥340 wide, large ≥440. Buildings: ceiling 270–330, door 125×237 (handle at 115). Stairs: max 45° slope, 19 cm step height. Ladder: 32 cm step height, 44 cm wide.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **`GetRemainingTime` on the call queue still reports a cancelled entry** — the engine keeps
+  cancelled entries until they fall due, so it is no proof that `Remove` worked. Verify by
+  advancing time and checking the callback does not run; guard callbacks against reopened
+  sessions.
+- Remove pending `CallLater`s in `OnDelete` (and when a screen or tab is torn down), not only
+  on hide.
+- `GetGame().InPlayMode()` is still true during world teardown, so a destructor guarded by it
+  can spawn entities while the world is being destroyed. Do teardown work in `OnDelete` and
+  skip it when the world or game mode is ending **(unverified, code-review finding)**.

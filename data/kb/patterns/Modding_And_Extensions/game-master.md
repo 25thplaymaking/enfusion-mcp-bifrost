@@ -203,3 +203,50 @@ var.GetInt();  var.GetBool();  var.GetFloat();  var.GetVector();
 **Run**: Select prefabs in resource browser → Play. System spawns each at matching label position and captures.
 
 **Prerequisite**: `Create/Update Selected Editable Prefabs` must run first.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Attribute state captured in `ReadVariable` is server-only.** For attributes with
+  `m_bIsServer 1`, `ReadVariable` runs on the server while `GetEntries` runs on the GM's
+  client; a list built from state captured in `ReadVariable` differs between machines and on a
+  dedicated server the chosen index maps to the wrong row (works on a listen server). Build one
+  index space on both machines from replicated data.
+- **Attribute IDs are indices into the manager's list** and must match on server and clients:
+  register statically, never from runtime state, files or the asking player. An attribute
+  class may appear only once across all lists (duplicates are skipped without an error).
+- Native attribute collection includes an attribute when **at least one** selected entity is
+  compatible (union across a multi-selection); controls that must apply to every target need
+  intersection logic.
+- **Context actions:** append a client-local `SCR_BaseContextAction` in
+  `SCR_ContextActionsEditorComponent.GetActions` instead of overriding shared action-list
+  configs (other mods override the same resources). Server actions are addressed by list
+  index, so an appended action must stay client-local.
+- **Editor labels from a mod:** vanilla `SCR_EditableEntityCore` label settings use private
+  fields — subclass the label-setting classes overriding their getters, and mod
+  `SCR_EditableEntityCore` to add your group to its public lookups. The vanilla browser caches
+  groups when the editor starts. Names and icons come from
+  `SCR_EditableEntityCore.GetLabelUIInfo(label, out SCR_UIInfo)`.
+- A GM move of an AI character arrives through the owner's teleport ~0.5 s after
+  `SCR_EditableEntityComponent.SetTransform` returns — check over a window (up to 1.5 s). A
+  server hook on `SetTransform` sees every GM move, placement, group move and tool teleport.
+- Vanilla catalogue boxes, crates and pallets have static physics (no mass; they hang where
+  placed), and editor labels do not tell a sandbag from an ammo pallet.
+- The native editor budget `EEditableEntityBudget.AI` has a per-prefab cost and no faction
+  dimension: per-faction sub-budgets are not possible on it.
+- `SCR_Global.IsPositionWithinTerrainBounds` also rejects points **below the terrain
+  surface**, so prefab-created children a few centimetres under sloped ground fail it. Use a
+  horizontal-extent check for item positions.
+- Spawning a parent prefab recreates its native children; some (a checkpoint's sign) leave the
+  entity hierarchy and survive only as editable children. When restoring captured
+  compositions, claim existing children from both the hierarchy and the editable children
+  before spawning, or they duplicate.
+- Radio API (`BaseRadioComponent.SetPower`, `SetTransceiverFrequency`,
+  `BaseTransceiver.SetRange`/`SetMuteState`) exists; whether server-side changes reach players'
+  radios and VoN is **unverified**.
+- Dead characters, waypoint deletion on removal and the GM-placeable waypoint list: see
+  *AI Orders & Movement*. Editor input and Properties-panel lifecycle: see *Menu Stacking,
+  Input Routing & Layout Facts*.

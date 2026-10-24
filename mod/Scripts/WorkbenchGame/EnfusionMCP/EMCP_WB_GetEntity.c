@@ -32,8 +32,7 @@ class EMCP_WB_GetEntityResponse : JsonApiStruct
 	int varCount;
 
 	// Properties collected before OnPack
-	ref array<string> m_aVarNames;
-	ref array<string> m_aVarValues;
+	ref array<ref EMCP_WB_InspectedProperty> m_aProperties = {};
 	ref array<string> m_aComponentClasses;
 
 	void EMCP_WB_GetEntityResponse()
@@ -49,8 +48,6 @@ class EMCP_WB_GetEntityResponse : JsonApiStruct
 		RegV("subScene");
 		RegV("varCount");
 
-		m_aVarNames = {};
-		m_aVarValues = {};
 		m_aComponentClasses = {};
 	}
 
@@ -58,23 +55,15 @@ class EMCP_WB_GetEntityResponse : JsonApiStruct
 	{
 		// Pack properties array
 		StartArray("properties");
-		for (int i = 0; i < m_aVarNames.Count(); i++)
-		{
-			StartObject("");
-			StoreString("name", m_aVarNames[i]);
-			StoreString("value", m_aVarValues[i]);
-			EndObject();
-		}
+		foreach (EMCP_WB_InspectedProperty prop : m_aProperties) ItemObject(prop);
 		EndArray();
 
 		// Pack components array
 		StartArray("components");
 		for (int i = 0; i < m_aComponentClasses.Count(); i++)
 		{
-			StartObject("");
-			StoreString("className", m_aComponentClasses[i]);
-			StoreInteger("index", i);
-			EndObject();
+			EMCP_WB_ComponentSummary component = new EMCP_WB_ComponentSummary();
+			component.className = m_aComponentClasses[i]; component.index = i; ItemObject(component);
 		}
 		EndArray();
 	}
@@ -120,8 +109,8 @@ class EMCP_WB_GetEntity : NetApiHandler
 				IEntitySource candidate = api.GetEditorEntity(i);
 				if (candidate && candidate.GetName() == req.name)
 				{
+					if (entSrc) { resp.status = "error"; resp.message = "Ambiguous entity name; inspect by index or native entityId"; return resp; }
 					entSrc = candidate;
-					break;
 				}
 			}
 
@@ -188,11 +177,7 @@ class EMCP_WB_GetEntity : NetApiHandler
 
 		for (int v = 0; v < maxVars; v++)
 		{
-			string varName = entSrc.GetVarName(v);
-			string varVal;
-			entSrc.GetDefaultAsString(varName, varVal);
-			resp.m_aVarNames.Insert(varName);
-			resp.m_aVarValues.Insert(varVal);
+			resp.m_aProperties.Insert(EMCP_WB_Inspector.DescribeProperty(entSrc, v));
 		}
 
 		// Collect components

@@ -31,7 +31,7 @@
     {
       "name": "soldier",
       "description": "Military personnel with faction, rank, and combat loadout",
-      "defaultParent": "Prefabs/Characters/Core/Soldier_Base.et",
+      "defaultParent": "Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Base.et",
       "subdirectory": "Prefabs/Characters/Soldiers",
       "postCreateNotes": [
         "Set model to military soldier rig",
@@ -44,7 +44,7 @@
     {
       "name": "civilian",
       "description": "Non-combatant civilians and support personnel",
-      "defaultParent": "Prefabs/Characters/Core/Civilian_Base.et",
+      "defaultParent": "Prefabs/Characters/Factions/CIV/Character_CIV_base.et",
       "subdirectory": "Prefabs/Characters/Civilians",
       "postCreateNotes": [
         "Set model to civilian rig",

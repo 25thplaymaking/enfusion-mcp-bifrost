@@ -19,6 +19,7 @@ class EMCP_WB_GetStateResponse : JsonApiStruct
 	string status;
 	string message;
 	string mode;
+	string worldPath;
 	int entityCount;
 	int selectedCount;
 	int currentSubScene;
@@ -34,6 +35,7 @@ class EMCP_WB_GetStateResponse : JsonApiStruct
 		RegV("status");
 		RegV("message");
 		RegV("mode");
+		RegV("worldPath");
 		RegV("entityCount");
 		RegV("selectedCount");
 		RegV("currentSubScene");
@@ -49,7 +51,7 @@ class EMCP_WB_GetStateResponse : JsonApiStruct
 		StartArray("selectedNames");
 		for (int i = 0; i < m_aSelectedNames.Count(); i++)
 		{
-			StoreString("", m_aSelectedNames[i]);
+			ItemString(m_aSelectedNames[i]);
 		}
 		EndArray();
 	}
@@ -90,6 +92,21 @@ class EMCP_WB_GetState : NetApiHandler
 				resp.boundsMax = bMax[0].ToString() + " " + bMax[1].ToString() + " " + bMax[2].ToString();
 			}
 
+			return resp;
+		}
+
+		// GetApi() can return a non-null interface while World Editor is showing its
+		// unnamed empty world. Entity/sub-scene calls on that interface are unsafe in
+		// Workbench 1.8 and can access-violate the native process. The packed
+		// SCR_WorldEditorToolHelper checks GetWorldPath/GetWorld before enumerating.
+		string worldPath;
+		api.GetWorldPath(worldPath);
+		resp.worldPath = worldPath;
+		if (worldPath == "" && !worldEditor.IsPrefabEditMode())
+		{
+			resp.status = "ok";
+			resp.mode = "no_world";
+			resp.message = "World Editor is open with no world loaded";
 			return resp;
 		}
 

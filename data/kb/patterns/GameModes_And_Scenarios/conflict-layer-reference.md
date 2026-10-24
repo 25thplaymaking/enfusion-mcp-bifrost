@@ -1,5 +1,16 @@
 # Conflict Layer Reference
 
+> **Vanilla vs mod prefabs (checked against the game data 2026-10-11).** Parts of this doc were
+> written from workshop Conflict mods. In the **base game** the Conflict mode is
+> `{3B230AAC5252108F}Prefabs/MP/Modes/Conflict/GameMode_Campaign.et` (`SCR_GameModeCampaign`) and the
+> faction manager is `{F1AC26310BAE3788}Prefabs/MP/Campaign/CampaignFactionManager.et`. These do **not**
+> exist in the base game and only load with the mod that ships them: `GameMode_Seize.et`,
+> `CampaignFactionManager_Seize.et`, `CampaignLoadoutManager_Seize.et`, `SCR_BattlePrepZone.et`,
+> `RadioBroadcastManager.et`, `CampaignTaskManager.et`, every `IRON_*` class/prefab and
+> `E_SeedingRestrictionZoneBase.et`. `SCR_BaseTaskManager` is no longer in the script API either.
+> Referencing them without the mod as a dependency gives "Unknown class" / missing-resource errors.
+
+
 Quick-reference for layer file names, entity types, and prefab GUIDs used in production Conflict/Seize mods. Sourced from analysis of ConflictEscalation, SeizeAMPSecure, TheConflictIsles, ConflictPVERemixedVanilla, LinearConflictPVE (2,000+ layer files across 7 mods).
 
 ---
@@ -99,10 +110,10 @@ Quick-reference for layer file names, entity types, and prefab GUIDs used in pro
 | `{8BEE4B0606893CDF}` | `ConflictSourceBase_T1Harbor.et` | Small harbor — low supply income |
 | `{0226331FB6A8249A}` | `ConflictSourceBase_T3Harbor.et` | Large harbor — high supply income |
 | `{1739B43A3702BB84}` | `ConflictSourceBase_Airfield.et` | Airfield supply source |
-| `{CE6DD1D3C1BC7366}` | `GameMode_Seize.et` | Conflict game mode |
-| `{F1AC26310BAE3788}` | `CampaignFactionManager_Seize.et` | Faction manager |
+| `{3B230AAC5252108F}` | `Prefabs/MP/Modes/Conflict/GameMode_Campaign.et` | Conflict game mode (base game). `GameMode_Seize.et` `{CE6DD1D3C1BC7366}` is a mod's variant. |
+| `{F1AC26310BAE3788}` | `Prefabs/MP/Campaign/CampaignFactionManager.et` | Faction manager (the GUID older docs pair with `CampaignFactionManager_Seize.et`) |
 | `{35C70C8528D145B1}` | `MOBSpawnProtectionArea.et` | MOB player spawn safety zone |
-| `{D71F66A96E03FE7C}` | `SCR_BattlePrepZone.et` | Battle prep safe zone at match start |
+| `{D71F66A96E03FE7C}` | `SCR_BattlePrepZone.et` | Battle prep safe zone — **mod only** |
 | `{27941CDF3E7E1A5F}` | `CampaignRemnantsSupplyDepot.et` | Supply drop point for player-built bases |
 
 ### Ambient Patrols
@@ -161,7 +172,7 @@ Quick-reference for layer file names, entity types, and prefab GUIDs used in pro
 | `{028DAEAD63E056BE}` | `PerceptionManager.et` | Perception system |
 | `{33F9FD881E3700CC}` | `SCR_CameraManager.et` | Camera control |
 | `{B8E09FAB91C4ECCD}` | `RadioManager.et` | Radio communication system |
-| `{66B93BC296E2F977}` | `RadioBroadcastManager.et` | Radio broadcast handling |
+| `{66B93BC296E2F977}` | `RadioBroadcastManager.et` | Radio broadcast handling — **mod only** |
 | `{3AFFB0B0EC055284}` | `GenericWorldPP_Default.et` | Post-processing effects |
 | `{78D9BBF0F423FEB4}` | `FogHaze_Default.et` | Atmosphere/fog |
 

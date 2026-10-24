@@ -26,11 +26,17 @@ class EMCP_WB_ModifyEntityRequest : JsonApiStruct
 	}
 }
 
-class EMCP_WB_EntityProperty
+class EMCP_WB_EntityProperty : JsonApiStruct
 {
 	string m_sName;
 	string m_sType;
 	string m_sValue;
+	override void OnPack()
+	{
+		StoreString("name", m_sName);
+		StoreString("type", m_sType);
+		StoreString("value", m_sValue);
+	}
 }
 
 class EMCP_WB_ModifyEntityResponse : JsonApiStruct
@@ -58,11 +64,7 @@ class EMCP_WB_ModifyEntityResponse : JsonApiStruct
 			for (int i = 0; i < m_aProperties.Count(); i++)
 			{
 				EMCP_WB_EntityProperty p = m_aProperties[i];
-				StartObject("");
-				StoreString("name", p.m_sName);
-				StoreString("type", p.m_sType);
-				StoreString("value", p.m_sValue);
-				EndObject();
+				ItemObject(p);
 			}
 			EndArray();
 		}
@@ -93,13 +95,17 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 	static IEntitySource FindEntityByName(WorldEditorAPI api, string name)
 	{
 		int count = api.GetEditorEntityCount();
+		IEntitySource found;
 		for (int i = 0; i < count; i++)
 		{
 			IEntitySource candidate = api.GetEditorEntity(i);
 			if (candidate && candidate.GetName() == name)
-				return candidate;
+			{
+				if (found) return null;
+				found = candidate;
+			}
 		}
-		return null;
+		return found;
 	}
 
 	//------------------------------------------------------------------------------------------------
@@ -181,7 +187,7 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 		if (!entSrc)
 		{
 			resp.status = "error";
-			resp.message = "Entity not found: " + req.name;
+			resp.message = "Entity not found or name is ambiguous: " + req.name + "; use native inspector entityId targeting";
 			return resp;
 		}
 
@@ -202,12 +208,14 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 
 			// Set position via SetVariableValue on the coords property
 			BaseContainer entContainer = entSrc.ToBaseContainer();
+			bool moved;
 			if (entContainer)
 			{
-				api.SetVariableValue(entContainer, null, "coords", req.value);
+				moved = api.SetVariableValue(entContainer, null, "coords", req.value);
 			}
 
 			api.EndEntityAction();
+			if (!moved) { resp.status = "error"; resp.message = "Native position edit was rejected"; return resp; }
 			resp.status = "ok";
 			resp.message = "Entity moved to " + req.value;
 		}
@@ -225,14 +233,14 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 			api.BeginEntityAction("Rotate entity via NetAPI");
 
 			BaseContainer entContainer = entSrc.ToBaseContainer();
+			bool rotated;
 			if (entContainer)
 			{
-				api.SetVariableValue(entContainer, null, "angleX", angles[0].ToString());
-				api.SetVariableValue(entContainer, null, "angleY", angles[1].ToString());
-				api.SetVariableValue(entContainer, null, "angleZ", angles[2].ToString());
+				rotated = api.SetVariableValue(entContainer, null, "angles", req.value);
 			}
 
 			api.EndEntityAction();
+			if (!rotated) { resp.status = "error"; resp.message = "Native rotation edit was rejected"; return resp; }
 			resp.status = "ok";
 			resp.message = "Entity rotated to " + req.value;
 		}
@@ -278,8 +286,9 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 			}
 
 			api.BeginEntityAction("Reparent entity via NetAPI");
-			api.ParentEntity(parentSrc, entSrc, false); // false = keep local coords (0 0 0), true would convert world pos causing offset
+			bool parented = api.ParentEntity(parentSrc, entSrc, false); // Preserve local coordinates.
 			api.EndEntityAction();
+			if (!parented) { resp.status = "error"; resp.message = "Native parenting was rejected"; return resp; }
 
 			resp.status = "ok";
 			resp.message = "Entity reparented to: " + req.value;
@@ -368,10 +377,13 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 			}
 
 			string val;
-			if (compSrc)
-				compSrc.Get(req.propertyKey, val);
-			else
-				entSrc.Get(req.propertyKey, val);
+			string kind;
+			BaseContainer propertyContainer = entSrc;
+			if (compSrc) propertyContainer = compSrc;
+			if (!EMCP_WB_Inspector.ReadValue(propertyContainer, req.propertyKey, val, kind))
+			{
+				resp.status = "error"; resp.message = "Property is missing or not a readable scalar; use native container inspection"; return resp;
+			}
 
 			resp.status = "ok";
 			resp.message = val;
@@ -413,14 +425,14 @@ class EMCP_WB_ModifyEntity : NetApiHandler
 				else
 					varName = entSrc.GetVarName(v);
 				string varValue = "";
-				if (compSrc)
-					compSrc.Get(varName, varValue);
-				else
-					entSrc.Get(varName, varValue);
+				string varType;
+				BaseContainer propertyContainer = entSrc;
+				if (compSrc) propertyContainer = compSrc;
+				EMCP_WB_Inspector.ReadValue(propertyContainer, varName, varValue, varType);
 
 				EMCP_WB_EntityProperty prop = new EMCP_WB_EntityProperty();
 				prop.m_sName = varName;
-				prop.m_sType = "";  // type info not available via script API — leave empty
+				prop.m_sType = varType;
 				prop.m_sValue = varValue;
 				resp.m_aProperties.Insert(prop);
 			}

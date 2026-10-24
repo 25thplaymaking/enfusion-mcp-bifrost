@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "source": "https://community.bistudio.com/wikidata/api.php",
+  "namespace": 5050,
+  "format": "markdown",
+  "capturedAt": "2026-10-11T07:37:25.634Z",
+  "installedAt": "2026-10-11T07:38:06.200Z",
+  "officialPageCount": 265,
+  "preservedDoxygenPageCount": 7,
+  "totalPageCount": 272,
+  "newestRevision": "2026-10-10T12:10:01Z"
+}

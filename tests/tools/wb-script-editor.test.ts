@@ -8,10 +8,10 @@ describe("wb_script_editor — exported data seam", () => {
     expect(scriptEditorTools.map((e) => e.name)).toEqual(["wb_script_editor"]);
   });
 
-  it("guards edit mode only for line-mutating actions, with the original phrasing", () => {
-    expect(t.requireMode!({ action: "setLine" })).toBe("edit");
-    expect(t.requireMode!({ action: "insertLine" })).toBe("edit");
-    expect(t.requireMode!({ action: "removeLine" })).toBe("edit");
+  it("allows buffer work without a World Editor scene", () => {
+    expect(t.requireMode!({ action: "setLine" })).toBeNull();
+    expect(t.requireMode!({ action: "insertLine" })).toBeNull();
+    expect(t.requireMode!({ action: "removeLine" })).toBeNull();
     expect(t.requireMode!({ action: "getLine" })).toBeNull();
     expect(t.requireMode!({ action: "getCurrentFile" })).toBeNull();
     expect((t.modeAction as (i: unknown) => string)({ action: "setLine" })).toBe(
@@ -31,12 +31,13 @@ describe("wb_script_editor — validate", () => {
   it("requires text for setLine/insertLine once a line is present (empty string is valid)", () => {
     expect(t.validate!({ action: "setLine", line: 1 })).toBe('Error: `text` is required for the "setLine" action.');
     expect(t.validate!({ action: "insertLine", line: 1 })).toBe('Error: `text` is required for the "insertLine" action.');
-    expect(t.validate!({ action: "setLine", line: 1, text: "" })).toBeNull();
+    expect(t.validate!({ action: "setLine", line: 1, text: "", expectedFile: "A.c", expectedLinesCount: 2, expectedText: "old" })).toBeNull();
   });
 
   it("requires a path for openFile and accepts read-only actions", () => {
     expect(t.validate!({ action: "openFile" })).toBe('Error: `path` is required for the "openFile" action.');
-    expect(t.validate!({ action: "openFile", path: "Scripts/A.c" })).toBeNull();
+    expect(t.validate!({ action: "openFile", path: "Scripts/A.c" })).toContain("can activate Workbench");
+    expect(t.validate!({ action: "openFile", path: "Scripts/A.c", allowForeground: true })).toBeNull();
     expect(t.validate!({ action: "getCurrentFile" })).toBeNull();
     expect(t.validate!({ action: "getLinesCount" })).toBeNull();
   });
@@ -68,16 +69,16 @@ describe("wb_script_editor — formatter", () => {
   });
 
   it("renders the mutation confirmations echoing the input", () => {
-    expect(t.formatter({ result: {}, input: { action: "setLine", line: 3, text: "x" } }).text).toBe(
+    expect(t.formatter({ result: { verified: true }, input: { action: "setLine", line: 3, text: "x" } }).text).toBe(
       "**Line 3 Updated**\n\nNew content:\n```\nx\n```"
     );
-    expect(t.formatter({ result: {}, input: { action: "insertLine", line: 3, text: "y" } }).text).toBe(
+    expect(t.formatter({ result: { verified: true }, input: { action: "insertLine", line: 3, text: "y" } }).text).toBe(
       "**Line Inserted** at position 3\n\nContent:\n```\ny\n```"
     );
-    expect(t.formatter({ result: {}, input: { action: "removeLine", line: 3 } }).text).toBe(
+    expect(t.formatter({ result: { verified: true }, input: { action: "removeLine", line: 3 } }).text).toBe(
       "**Line 3 Removed**"
     );
-    expect(t.formatter({ result: { text: "old" }, input: { action: "removeLine", line: 3 } }).text).toBe(
+    expect(t.formatter({ result: { verified: true, text: "old" }, input: { action: "removeLine", line: 3 } }).text).toBe(
       "**Line 3 Removed**\n\nRemoved content:\n```\nold\n```"
     );
   });

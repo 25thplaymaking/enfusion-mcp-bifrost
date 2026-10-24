@@ -1,3 +1,14 @@
+class EMCP_WB_ComponentSummary : JsonApiStruct
+{
+	string className;
+	int index;
+	override void OnPack()
+	{
+		StoreString("className", className);
+		StoreInteger("index", index);
+	}
+}
+
 /**
  * EMCP_WB_Components.c - Component management handler
  *
@@ -53,10 +64,10 @@ class EMCP_WB_ComponentsResponse : JsonApiStruct
 			StartArray("components");
 			for (int i = 0; i < m_aComponentClasses.Count(); i++)
 			{
-				StartObject("");
-				StoreString("className", m_aComponentClasses[i]);
-				StoreInteger("index", m_aComponentIndices[i]);
-				EndObject();
+				EMCP_WB_ComponentSummary item = new EMCP_WB_ComponentSummary();
+				item.className = m_aComponentClasses[i];
+				item.index = m_aComponentIndices[i];
+				ItemObject(item);
 			}
 			EndArray();
 		}

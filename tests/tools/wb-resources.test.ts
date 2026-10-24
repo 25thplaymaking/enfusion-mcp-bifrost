@@ -10,10 +10,15 @@ describe("wb_resources — exported data seam", () => {
 });
 
 describe("wb_resources — requireMode + modeAction", () => {
-  it("requires edit mode only for register/rebuild", () => {
-    expect(t.requireMode!({ action: "register" })).toBe("edit");
-    expect(t.requireMode!({ action: "rebuild" })).toBe("edit");
-    expect(t.requireMode!({ action: "browse" })).toBeNull();
+  it("requires explicit foreground permission only when opening a resource", () => {
+    expect(t.validate!({ action: "open", path: "P.et" })).toContain("can activate Workbench");
+    expect(t.validate!({ action: "open", path: "P.et", allowForeground: true })).toBeNull();
+    expect(t.validate!({ action: "getInfo", path: "P.et" })).toBeNull();
+  });
+
+  it("does not require a world for Resource Manager operations", () => {
+    expect(t.requireMode!({ action: "register" })).toBeNull();
+    expect(t.requireMode!({ action: "rebuild" })).toBeNull();
     expect(t.requireMode!({ action: "getInfo" })).toBeNull();
     expect(t.requireMode!({ action: "open" })).toBeNull();
   });
@@ -26,29 +31,6 @@ describe("wb_resources — requireMode + modeAction", () => {
 });
 
 describe("wb_resources — formatter", () => {
-  it("renders a browse listing with a more-not-shown note", () => {
-    const { text } = t.formatter({
-      result: {
-        entries: [{ path: "Prefabs/A.et", type: "Prefab" }],
-        entryCount: 3,
-      },
-      input: { action: "browse", path: "Prefabs/" },
-    });
-    expect(text).toContain("**Resources matching `Prefabs/`** (1 of 3)");
-    expect(text).toContain("- `Prefabs/A.et` *(Prefab)*");
-    expect(text).toContain("*2 more not shown (cap 200).*");
-  });
-
-  it("renders an empty browse result without an error flag", () => {
-    const r = t.formatter({
-      result: { entries: [], message: "nothing here" },
-      input: { action: "browse", path: "Missing/" },
-    });
-    expect(r.text).toContain("**No resources found** matching `Missing/`");
-    expect(r.text).toContain("nothing here");
-    expect(r.isError).toBeUndefined();
-  });
-
   it("renders resource info with known and unknown keys", () => {
     const { text } = t.formatter({
       result: {
@@ -76,7 +58,7 @@ describe("wb_resources — formatter", () => {
     ).toContain("**Registered resource: P.et**");
     expect(
       t.formatter({ result: {}, input: { action: "rebuild", path: "P.et" } }).text
-    ).toContain("**Rebuilt resource database for: P.et**");
+    ).toContain("Requested resource rebuild for: P.et; completion is unconfirmed");
     expect(
       t.formatter({ result: { message: "done" }, input: { action: "open", path: "P.et" } }).text
     ).toContain("**Opened resource: P.et**\n\ndone");

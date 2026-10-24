@@ -8,12 +8,20 @@ use its terms verbatim in issues, ADRs, and code.
 
 A stdio MCP server that lets an LLM build Arma Reforger mods: research the
 Enfusion API, generate mod files, scaffold projects, and drive the Arma
-Workbench editor live. ~18k LOC of TypeScript, **50 MCP tools** across 41 files.
+Workbench editor live. ~22k LOC of TypeScript, **63 MCP tools** across 54 tool
+files: **37 live-bridge tools and 26 offline tools that need no Workbench
+running**.
+
+The offline/live split is the fact to know first. If a task does not need the
+editor open, it is almost always reachable offline — `api_search`,
+`wiki_read`, `script_create`, `prefab`, `layout_recipe`, `wb_knowledge`,
+`wb_playbook`, and the rest. Check the offline list before concluding a step
+needs a running editor.
 
 ## Architecture (8 subsystems)
 
 1. **Server core** — `src/index.ts`, `src/server.ts`, `src/config.ts`.
-   Boots the `McpServer` over stdio and registers all 50 tools, the prompts, and
+   Boots the `McpServer` over stdio and registers all 63 tools, the prompts, and
    the resources. Config is layered: built-in defaults → JSON config file → env
    vars (`ENFUSION_WORKBENCH_HOST`, `ENFUSION_EXTRACTED_PATH`,
    `ENFUSION_DEFAULT_MOD`). Path defaults assume a Windows Arma install.
@@ -32,15 +40,22 @@ Workbench editor live. ~18k LOC of TypeScript, **50 MCP tools** across 41 files.
    client to the running Arma Workbench's "NET API" (`127.0.0.1:5775`). More than
    a client: if Workbench isn't running it installs handler scripts into the mod,
    spawns the exe, waits for the NET API, then retries the call. The live-control
-   half of the system — **31 of the 50 tools go through the bridge**.
+   half of the system — **37 of the 63 tools go through the bridge**. They are
+   the `wb_`-prefixed tools *minus* `wb_knowledge` and `wb_playbook`, which are
+   `wb_`-prefixed and still fully offline; the remaining 26 need no editor.
 
-5. **Tools layer** — `src/tools/` (41 files, 50 tools). Three families:
+5. **Tools layer** — `src/tools/` (54 files, 63 tools). Four families:
    - **reference tools** — query the KB (api/component/wiki search); no engine
      needed.
    - **authoring tools** — generate mod files from templates/recipes
      (script/prefab/config/layout/scenario create); touch neither KB nor bridge
      at call time.
-   - **Workbench tools** (`wb_*`) — drive the live editor through the bridge.
+   - **procedure tools** — `wb_playbook` and `wb_knowledge` (see the Playbooks
+     layer below); file-system lookups that make no Workbench call.
+   - **Workbench tools** (`wb_*`) — drive the live editor through the bridge. The
+     `wb_` prefix is NOT a reliable "needs Workbench" signal: `wb_knowledge` and
+     `wb_playbook` are `wb_`-prefixed and fully offline, which is why the split
+     is 37 live / 26 offline rather than 39/24.
 
 6. **Templates & recipes** — `src/templates/` + `data/recipes` + `src/patterns`.
    Codegen for prefabs, configs, scenarios, scripts, layouts, gproj. The **recipe
@@ -54,6 +69,50 @@ Workbench editor live. ~18k LOC of TypeScript, **50 MCP tools** across 41 files.
 8. **Prompts, resources & animation** — `src/prompts/` (create-mod, modify-mod
    MCP prompts), `src/resources/` (class/pattern/group MCP resources),
    `src/animation/` (animation-graph tooling).
+
+## The Playbooks layer (added 2026-10-02)
+
+`data/kb/patterns/` is organised by **subject**; `data/kb/playbooks/` is
+organised by **task**. Both are served by a tool, and the distinction is the
+whole point:
+
+| Tool | Question | Shape |
+|---|---|---|
+| `wb_knowledge` | "what does this engine concept **do**?" | subject-oriented pattern files |
+| `wb_playbook` | "how do I actually **do** this task?" | one procedure per task |
+
+A playbook is one markdown file per task carrying YAML front-matter — `id`,
+`title`, `goal`, `humanStep`, `tools`, `triggers`, `seeAlso` — and a body with
+**preconditions, the ordered tool calls, the traps that fail silently, and a
+verification checklist**. `humanStep: true` marks the tasks that cannot be finished
+without a human clicking in the editor; the catalogue splits the two groups so an
+agent never promises unattended work it cannot deliver.
+
+Current set (19): `scaffold-a-new-addon`, `write-an-enforcescript-component`,
+`replicate-state-to-clients`, `add-a-prefab`, `create-a-config`,
+`create-a-layout`, `create-a-menu`, `import-a-model-from-blender`,
+`create-a-model-in-workbench`, `author-an-animation-graph`,
+`create-a-particle-effect`, `author-terrain-for-a-map`, `live-workbench-session`,
+`create-a-game-mode`, `add-a-weapon`, `add-a-vehicle`, `add-a-sound`,
+`react-to-damage`, `author-ai-behaviour`.
+
+Every KB domain that carries documentation has a task entry point; the test
+suite fails if one is added without a matching playbook.
+
+### Both indexes are GENERATED, never hand-edited
+
+`data/kb/index.json` and `data/kb/playbooks/index.json` are derived from the files
+on disk by `scripts/build-kb-index.ts` and `scripts/build-playbook-index.ts`
+(`npm run kb:index`, `npm run playbooks:index`; `--check` is the drift guard and
+runs in the test suite).
+
+This is not tidiness. `index.json` used to be hand-maintained, and it rotted:
+eight animation documents (170 KB) sat in `patterns/` unindexed, and because
+`kb-loader` resolves every hit **through** the index, the entire animation domain
+was unreachable through `wb_knowledge`. Confirmed against the live server. The
+loader now stems and expands synonyms too, because without it `"particles"`,
+`"footsteps"` and `"how do I replicate to clients"` matched nothing at all and
+dumped the whole index back.
 
 ## Engine constraints (dictated by Arma, not our choices)
 

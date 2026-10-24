@@ -77,7 +77,7 @@ async function requireMode(
   const status = deriveStatus(client.state);
 
   // Stale cache or unknown mode: probe once for the truth before deciding.
-  if (status === "stale" || client.state.mode === "unknown") {
+  if (status !== "connected" || client.state.mode === "unknown") {
     const fresh = await client.refreshState();
     if (!fresh.connected) {
       return `Cannot ${toolAction}: Workbench is not reachable. Run \`wb_diagnose\` for details.`;

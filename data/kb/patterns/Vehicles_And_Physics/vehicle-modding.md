@@ -6,7 +6,7 @@
 
 | Component | Role / Key Properties |
 |---|---|
-| `SCR_VehicleDamageMangerComponent` | `HP Max`, `HP Damaged` (smoke threshold), `Collision Multiplier`, `Collision Velocity Threshold`, `Wreck Model`, destruction/burning particle resources |
+| `SCR_VehicleDamageManagerComponent` | `HP Max`, `HP Damaged` (smoke threshold), `Collision Multiplier`, `Collision Velocity Threshold`, `Wreck Model`, destruction/burning particle resources |
 | `FuelManagerComponent` | `SCR_FuelNode` array (one per tank): `Fuel Type`, `Max Fuel`, `Initial Fuel Tank State` |
 | `SCR_FuelConsumptionComponent` | `Fuel Consumption` in liters/hour at max power RPM |
 | `VehicleWheeledSimulation` | Engine (`Max Power` kW, `Max Torque` Nm), Clutch, Gearbox, Differentials, Axles (`Max Steering Angle` degrees) |
@@ -42,3 +42,13 @@ Required even without retexture — AI and game mode systems rely on it.
 - `VehicleSimple` layer for rough vehicle-static collision (building hit detection without detailed physics).
 - Do not use `UTM_` (trimesh) colliders for vehicle bodies — use `UBX_` (box) or `UCX_` (convex) only.
 - Wheel colliders: `Wheel` preset = `FireGeometry + CharCollide` — characters are pushed by wheels.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- The game's editor refuel ignores fuel storage nodes (a fuel truck's cargo tank); a refuel
+  that included them handed out free fuel.
+- Boarding, dismount and compartment API facts: *Helicopter & Air Scripting*.

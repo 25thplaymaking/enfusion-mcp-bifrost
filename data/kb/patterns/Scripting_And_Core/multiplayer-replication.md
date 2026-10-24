@@ -27,11 +27,19 @@ override protected void EOnInit(IEntity owner)
 
 ---
 
-## Rpc() Only Exists on IEntity / GenericEntity — NOT ScriptComponent
+## Rpc() on components
 
-Calling `Rpc()` from a `ScriptComponent` will fail silently.
-If you need broadcast from a component, the entity must subclass `GenericEntity`,
-or use a different approach (e.g. spawn entity locally on all clients via Broadcast replication).
+`Rpc()` is declared on `GenericComponent` and so on every `ScriptComponent`:
+`proto void Rpc(func method, void p0 = NULL, ... void p7 = NULL)` — at most **8 arguments**.
+16 vanilla `ScriptComponent` subclasses call it (e.g. `SCR_PlacingEditorComponent`,
+`SCR_CampaignNetworkComponent`, `SCR_EditableGroupComponent`). Older notes that said it
+"fails silently on a ScriptComponent" were wrong (checked against the API index and the
+vanilla scripts, 2026-10-11).
+
+When a component RPC seems to do nothing, check: the owning entity has an `RplComponent`
+(BI wiki: an entity to be replicated should always have one); the method carries
+`[RplRpc(...)]`; and the target exists on the receiving machine (a proxy that is not
+streamed in receives nothing — see *Additional MP Pitfalls*).
 
 ---
 
@@ -102,7 +110,7 @@ override protected void EOnInit(IEntity owner)
 Rpc(Rpc_MyMethod, param1, param2);
 ```
 
-- Available on `GenericEntity` and `GenericComponent`.
+- Available on `GenericEntity` and `GenericComponent` (so on every `ScriptComponent`); at most 8 arguments.
 - RPC order between two machines is guaranteed; RPCs are queued.
 - **Never call RPC from `EOnInit`** — not supported.
 
@@ -189,3 +197,34 @@ void RplLoad(ScriptBitReader reader)
 - Child entity spawned before attaching to parent loses Rpl State Override inheritance.
 - Streaming out while authority exists = undefined behaviour.
 - `crossPlatform` server config param broken — use `supportedPlatforms` with explicit platform entries instead.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Inventory storages replicate item IDs, not entities, by default.** A storage component
+  inheriting `UseVirtualInventoryReplication = 1` gives remote clients no item entities, so
+  display code that resolves a replicated item ID to an entity fails only on remote clients.
+  Set `UseVirtualInventoryReplication 0` on storages whose items clients must see.
+- **Validate every client-supplied value on the server**: whitelist the verbs each caller may
+  send, reject NaN/inf/out-of-range floats, cap string and selection lengths, and bound JSON
+  nesting depth and item/attachment counts (player-editable kit JSON with a count of
+  1,000,000 looped a million spawns).
+- **A reliable owner RPC does not make its target exist on the receiver.** An RPC carrying an
+  `RplId` whose entity is not streamed in on the client was silently discarded. Carry durable
+  state in `RplProp` / `RplSave`-`RplLoad` so it recovers when the target streams in.
+- **Scale does not replicate.** `IEntity.SetScale` is not networked, and
+  `SCR_EditableEntityComponent.SetTransformBroadcast` restores each peer's existing scale after
+  applying the transform, so it cannot fix a scale mismatch. Replicate scale yourself
+  (`RplProp` with `onRplName`, plus `RplSave`/`RplLoad` for JIP).
+- **Per-shot broadcast RPCs are expensive**: two broadcasts per round at 1,200 rpm is up to 160
+  RPCs/s to every client. Merge cues into one unreliable RPC.
+- Proxies must still join client-side registries (triggers, emitters); returning early on
+  proxies hid objects from remote and JIP Game Masters **(unverified on a remote client)**.
+- Whether a parent/child hierarchy relation reaches remote clients and late joiners the same
+  way as on the host is **unverified**.
+- Client-side "entity creation failure" lines after GM placement matched successful server
+  spawns; native completion retries unresolved replica IDs, so late replicas read as failures
+  **(unverified)**.

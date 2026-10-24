@@ -8,7 +8,7 @@ import { PakVirtualFS } from "../pak/vfs.js";
 import { resolveGameDataPath } from "../utils/game-paths.js";
 
 interface AssetEntry {
-  /** Relative path from game data root (e.g., "Prefabs/Weapons/Rifles/AK47/AK47.et") */
+  /** Relative path from game data root (e.g., "Prefabs/Weapons/Rifles/AK74/Rifle_AK74.et") */
   path: string;
   /** File extension without dot */
   ext: string;
@@ -202,12 +202,14 @@ export function registerAssetSearch(server: McpServer, config: Config): void {
           .enum(["prefab", "model", "texture", "script", "config", "material", "layout", "any"])
           .default("any")
           .describe("Filter by asset type"),
+        // Larger values are clamped rather than rejected: a rejected call returns
+        // nothing at all, which is worse than the first 100 results.
         limit: z
           .number()
           .min(1)
-          .max(100)
           .default(20)
-          .describe("Maximum results to return"),
+          .transform((n) => Math.min(n, 100))
+          .describe("Maximum results to return (values above 100 are treated as 100)"),
         refresh: z
           .boolean()
           .default(false)

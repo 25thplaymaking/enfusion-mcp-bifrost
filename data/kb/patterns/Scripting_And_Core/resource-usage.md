@@ -82,3 +82,17 @@ Must be `ref` or GC drops the object before first use.
 - **`ref BaseContainer m_bc;` is illegal** — BaseContainer cannot be ref-held. Only `Resource` can.
 - **Local `Resource` variable + returned `BaseContainer`** = instant null risk.
 - **`Resource.Load()` on invalid path** — always check `resource.IsValid()` before use.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Do not spawn prefabs just to read their data.** Spawning every catalogue item to read
+  clothing area or attachment type runs third-party component init code (one popular mod
+  throws when certain weapons spawn). Read the prefab's `BaseContainer` data instead
+  (e.g. `BaseLoadoutClothComponent.AreaType`).
+- A prefab from a mod that is not loaded reads back from saved JSON as a bare `{GUID}`; even
+  `ResourceName.GetPath()` on it logs `Wrong GUID/name`. Detect missing-mod prefabs with a
+  string check before touching the resource.

@@ -67,7 +67,7 @@ const createTool = defineWorkbenchTool({
   inputSchema: {
     prefab: z
       .string()
-      .describe("Prefab resource path (e.g., '{GUID}Prefabs/Characters/SoldierUS.et')"),
+      .describe("Prefab resource path (e.g., '{26A9756790131354}Prefabs/Characters/Factions/BLUFOR/US_Army/Character_US_Rifleman.et')"),
     position: z
       .string()
       .optional()

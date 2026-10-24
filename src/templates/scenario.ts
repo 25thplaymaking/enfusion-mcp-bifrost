@@ -11,14 +11,14 @@ const WORLD_PARENTS: Record<string, string> = {
   "western everon": "{312CDBA105554B51}worlds/MP/CTI_Campaign_WesternEveron.ent",
 };
 
-// Game mode (production Seize/Conflict mods)
-const PREFAB_GAME_MODE      = "{CE6DD1D3C1BC7366}Prefabs/GameLogic/GameMode_Seize.et";
-// Faction manager for Seize game mode
-const PREFAB_FACTION_MGR    = "{F1AC26310BAE3788}Prefabs/MP/Campaign/CampaignFactionManager_Seize.et";
+// Vanilla Conflict game mode (SCR_GameModeCampaign). The generator used to emit
+// a workshop mod's GameMode_Seize.et and CampaignFactionManager_Seize.et, which do
+// not exist in the base game, so its output only loaded with that mod present.
+const PREFAB_GAME_MODE      = "{3B230AAC5252108F}Prefabs/MP/Modes/Conflict/GameMode_Campaign.et";
+// Conflict faction manager (SCR_CampaignFactionManager)
+const PREFAB_FACTION_MGR    = "{F1AC26310BAE3788}Prefabs/MP/Campaign/CampaignFactionManager.et";
 // ConflictMilitaryBase — all military bases use this ($grp wrapper)
 const PREFAB_CONFLICT_BASE  = "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMilitaryBase.et";
-// MOB spawn protection area
-const PREFAB_SPAWN_PROTECT  = "{35C70C8528D145B1}Prefabs/MOBSpawnProtection/MOBSpawnProtectionArea.et";
 // Faction-specific ambient patrol spawnpoints
 const PREFAB_PATROL_FIA     = "{9273AB931008C271}Prefabs/Systems/AmbientPatrol/AmbientPatrolSpawnpoint_FIA.et";
 const PREFAB_PATROL_US      = "{1E4C8AD00BBB16AA}Prefabs/Systems/AmbientPatrol/AmbientPatrolSpawnpoint_Base.et"; // Base used for US
@@ -206,7 +206,6 @@ function buildDefaultLayer(opts: ConflictScenarioOptions): string {
   lines.push(` m_fVictoryTimer 300`);
   lines.push(` m_iRegularSuppliesIncome 50`);
   lines.push(` m_bEstablishingBasesEnabled 0`);
-  lines.push(` m_bHideBasesOutsideRadioRange 1`);
   lines.push(`}`);
 
   lines.push(`SCR_CampaignFactionManager CampaignFactionManager1 : "${PREFAB_FACTION_MGR}" {`);
@@ -321,13 +320,6 @@ function buildBasesLayer(opts: ConflictScenarioOptions): string {
     lines.push(`  }`);
     lines.push(`  coords ${fmtPos(bx, by, bz)}`);
 
-    if (isMOB) {
-      lines.push(`  {`);
-      lines.push(`   SCR_Iron_CaptureAndHoldSpawnProtectionArea : "${PREFAB_SPAWN_PROTECT}" {`);
-      lines.push(`    coords 0 0 0`);
-      lines.push(`   }`);
-      lines.push(`  }`);
-    }
 
     lines.push(` }`);
   }

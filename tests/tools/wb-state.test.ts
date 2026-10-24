@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import { stateTools } from "../../src/tools/wb-state.js";
 
@@ -77,5 +79,25 @@ describe("wb_state — formatter", () => {
 
   it("renders just the header when the snapshot is empty", () => {
     expect(t.formatter({ result: {}, input: {} }).text).toBe("**Workbench State**\n");
+  });
+});
+
+describe("EMCP_WB_GetState empty-world safety", () => {
+  it("checks for a loaded world before calling native entity APIs", () => {
+    const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
+    const stateSource = readFileSync(
+      `${repoRoot}mod/Scripts/WorkbenchGame/EnfusionMCP/EMCP_WB_GetState.c`,
+      "utf8"
+    );
+    const pingSource = readFileSync(
+      `${repoRoot}mod/Scripts/WorkbenchGame/EnfusionMCP/EMCP_WB_Ping.c`,
+      "utf8"
+    );
+
+    expect(stateSource.indexOf("api.GetWorldPath(worldPath)")).toBeLessThan(
+      stateSource.indexOf("api.GetEditorEntityCount()")
+    );
+    expect(stateSource).toContain('resp.mode = "no_world"');
+    expect(pingSource).toContain('resp.mode = "no_world"');
   });
 });

@@ -64,3 +64,24 @@ Access persistent effects: `GetPersistentEffects()`, `GetAllPersistentEffectsOnH
 **Forcing death correctly:** Use `HandleDamage()` with a realistic damage amount — not always `maxHealth`. This maintains the full callback chain and is compatible with mods that have custom HP/damage multipliers.
 
 **Mod compatibility pitfall:** Always deal a "realistic" damage amount. Dealing `maxHealth` true damage kills any character regardless of mod HP values — a Terminator-mod character inside an exploding vehicle shouldn't always die.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **Native bullet prefabs carry `ProjectileDamage`.** Spawning a tracer or ball round for
+  cosmetics also damages what it hits. Register such rounds and discard their damage in
+  `HijackDamageHandling` (damage source = the projectile) on every damage manager that can be
+  hit (character, vehicle, helicopter, armor, destruction, building).
+- **An AI whose AI was turned off with `DeactivateAI()` has no hit zones** — bullets pass
+  through. Keep AI active on damage targets.
+- `SCR_CharacterDamageManagerComponent.OnHandleFallDamage(EFallDamageType, vector)` can be
+  overridden, but guarding it did not make a ~40 m/s landing survivable: it does not cover
+  every lethal path.
+- Spinning rotors kill characters on contact (`SCR_RotorDamageManagerComponent.OnFilteredContact`);
+  see *Helicopter & Air Scripting*.
+- `Ammo_Shell_81mm_HE_M821.et` has `CollisionTriggerComponent` as its only damage source and
+  no direct-hit damage effect; a cosmetic dud needs the trigger left unarmed
+  **(unverified, prefab read)**.

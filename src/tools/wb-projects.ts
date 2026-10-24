@@ -1,30 +1,36 @@
 import { z } from "zod";
 import { defineWorkbenchTool, type WorkbenchTool } from "../workbench/define-tool.js";
 import { toEnginePath, normalizeOsPath } from "../utils/wsl-path.js";
+import { foregroundAuthorized } from "../workbench/tool-helpers.js";
 
 const projectsTool = defineWorkbenchTool({
   name: "wb_projects",
   description:
-    "Query project information from the Workbench. List all loaded addon projects, locate a specific project by name, or open a .gproj to load it into Workbench.",
+    "Query actual loaded addon IDs, locate the loaded project containing an absolute filesystem path, or open a .gproj with explicit foreground permission. Configured defaults are not evidence of which project is loaded.",
   inputSchema: {
     action: z
       .enum(["list", "locate", "open"])
-      .describe("Action: list (all loaded projects), locate (find specific project path), or open (load a .gproj into Workbench)"),
+      .describe("Action: list (loaded addon IDs), locate (identify project from an absolute path), open (open .gproj)"),
     name: z
       .string()
       .optional()
-      .describe("Project/addon name to locate (required for locate action), or .gproj file path (required for open action)"),
+      .describe("Legacy alias for path. For locate this must be an absolute path, not an addon ID."),
+    path: z.string().optional().describe("Absolute path inside a loaded project for locate; .gproj path for open."),
+    allowForeground: z.boolean().optional().default(false).describe("Permit opening the project window when the user has authorized foreground activity."),
   },
-  validate: ({ action, name }) => {
-    if (action === "open" && !name) {
-      return "Error: `name` is required for the open action. Provide the .gproj file path or addon name.";
+  validate: ({ action, name, path, allowForeground }) => {
+    const target = path || name;
+    if (action === "open" && !target) {
+      return "Error: `path` is required for the open action. Provide the .gproj file path.";
     }
-    if (action === "locate" && !name) {
-      return "Error: `name` is required for the locate action.";
+    if (action === "locate" && (!target || !/^(?:[A-Za-z]:[/\\]|[/\\])/.test(target))) {
+      return "Error: `path` must be an absolute filesystem path inside a loaded project. LocateProject does not accept addon names.";
     }
+    if (action === "open" && allowForeground !== true && !foregroundAuthorized()) return "Error: opening a project can activate Workbench. Pass `allowForeground: true` when foreground activity is authorized.";
     return null;
   },
-  apiFunc: ({ action, name }, client) => {
+  apiFunc: ({ action, name, path }, client) => {
+    const target = path || name;
     if (action === "open") {
       // `name` may be an addon name or a .gproj file path in any form
       // (/mnt/..., D:\..., or D:/...). Normalize to WSL form then convert to
@@ -32,16 +38,20 @@ const projectsTool = defineWorkbenchTool({
       // consistently. Addon names and resource paths pass through unchanged.
       return client.call<Record<string, unknown>>("EMCP_WB_EditorControl", {
         action: "openResource",
-        path: toEnginePath(normalizeOsPath(name!)),
+        path: toEnginePath(normalizeOsPath(target!)),
       });
     }
     if (action === "locate") {
-      return client.call<Record<string, unknown>>("LocateProject", { name });
+      // Shipped LocateProject uses a case-sensitive Contains against a root
+      // ending in '/'. Include the separator so locating the root itself works.
+      const lookupPath = toEnginePath(normalizeOsPath(target!)).replace(/\\/g, "/");
+      return client.call<Record<string, unknown>>("LocateProject", { path: lookupPath.endsWith("/") ? lookupPath : lookupPath + "/" });
     }
     return client.call<Record<string, unknown>>("GetLoadedProjects");
   },
   formatter: ({ result, input }) => {
-    const { action, name } = input;
+    const { action } = input;
+    const name = input.path || input.name;
 
     if (action === "open") {
       return {
@@ -52,16 +62,21 @@ const projectsTool = defineWorkbenchTool({
     if (action === "locate") {
       const path = result.path || result.projectPath || "(not found)";
       return {
-        text: `**Project Located**\n\n- **Name:** ${name}\n- **Path:** ${path}${result.guid ? `\n- **GUID:** ${result.guid}` : ""}`,
+        text: `**Project Located**\n\n- **Name:** ${result.projectName || name}\n- **Path:** ${path}${result.guid ? `\n- **GUID:** ${result.guid}` : ""}`,
+        ...(path === "(not found)" ? { isError: true } : {}),
       };
     }
 
     // list
-    const projects = Array.isArray(result.projects)
+    const projects = Array.isArray(result["Loaded Projects"])
+      ? result["Loaded Projects"]
+      : Array.isArray(result.projects)
       ? result.projects
       : Array.isArray(result.addons)
         ? result.addons
-        : [];
+        : null;
+
+    if (projects === null) return { text: "Unrecognized loaded-project response; inspect structured data. Project identity is unconfirmed.", isError: true };
 
     if (projects.length === 0) {
       return { text: `**No projects loaded** in Workbench.` };

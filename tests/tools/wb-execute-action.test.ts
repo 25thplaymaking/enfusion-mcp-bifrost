@@ -16,7 +16,7 @@ describe("wb_execute_action — exported data seam", () => {
   });
 });
 
-describe("wb_execute_action — validate (destructive-path block)", () => {
+describe("wb_execute_action — validate (safety blocks)", () => {
   it("blocks known-destructive prefixes, trimming whitespace", () => {
     expect(t.validate!({ menuPath: "File,Close" })).toBe(
       '**Blocked:** "File,Close" is a destructive action and cannot be executed via this tool. Perform it manually in Workbench.'
@@ -26,10 +26,22 @@ describe("wb_execute_action — validate (destructive-path block)", () => {
     expect(t.validate!({ menuPath: "File,Quit" })).toContain("**Blocked:**");
   });
 
-  it("allows non-destructive menu paths", () => {
-    expect(t.validate!({ menuPath: "File,Save" })).toBeNull();
-    expect(t.validate!({ menuPath: "Tools,Reload Scripts" })).toBeNull();
-    expect(t.validate!({ menuPath: "Edit,Undo" })).toBeNull();
+  it("blocks compile/reload paths that would destroy the replying handler", () => {
+    expect(t.validate!({ menuPath: "Tools,Reload Scripts", allowForeground: true })).toContain(
+      "destroy the NET API handler"
+    );
+    expect(t.validate!({ menuPath: "Build,Compile All", allowForeground: true })).toContain(
+      "wb_reload"
+    );
+    expect(t.validate!({ menuPath: "script,compile", allowForeground: true })).toContain(
+      "destroy the NET API handler"
+    );
+  });
+
+  it("requires explicit foreground permission for otherwise allowed paths", () => {
+    expect(t.validate!({ menuPath: "File,Save" })).toContain("can activate Workbench");
+    expect(t.validate!({ menuPath: "File,Save", allowForeground: true })).toBeNull();
+    expect(t.validate!({ menuPath: "Edit,Undo", allowForeground: true })).toBeNull();
   });
 });
 

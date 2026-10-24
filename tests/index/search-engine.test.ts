@@ -9,9 +9,9 @@ describe("SearchEngine", () => {
   const engine = new SearchEngine(dataDir);
 
   it("loads the index", () => {
-    expect(engine.isLoaded()).toBe(true);
     const stats = engine.getStats();
     expect(stats.totalClasses).toBeGreaterThan(8000);
+    expect(engine.isLoaded()).toBe(true);
   });
 
   describe("getClass", () => {
@@ -344,9 +344,14 @@ describe("SearchEngine", () => {
     it("returns components without query when category is specified", () => {
       const results = engine.searchComponents({ category: "vehicle" });
       expect(results.length).toBeGreaterThan(0);
+      // A component is identified by ancestry, not by its name: with inheritance
+      // repaired from the game source, real components such as SCR_VehicleDust
+      // (: ScriptComponent) and CarControllerComponent_B are found too.
+      const bases = ["GenericComponent", "ScriptComponent", "GameComponent", "ScriptGameComponent"];
       for (const r of results) {
         expect(r.categories).toContain("vehicle");
-        expect(r.component.name.endsWith("Component")).toBe(true);
+        const chain = engine.getInheritanceChain(r.component.name);
+        expect(r.component.name.endsWith("Component") || chain.some((c) => bases.includes(c))).toBe(true);
       }
     });
 

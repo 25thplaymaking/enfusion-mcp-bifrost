@@ -1,3 +1,14 @@
+class EMCP_WB_LayerSummary : JsonApiStruct
+{
+	int layerID;
+	int entityCount;
+	override void OnPack()
+	{
+		StoreInteger("layerID", layerID);
+		StoreInteger("entityCount", entityCount);
+	}
+}
+
 /**
  * EMCP_WB_Layers.c - Layer management handler
  *
@@ -66,10 +77,10 @@ class EMCP_WB_LayersResponse : JsonApiStruct
 			StartArray("layers");
 			for (int i = 0; i < m_aLayerIDs.Count(); i++)
 			{
-				StartObject("");
-				StoreInteger("layerID", m_aLayerIDs[i]);
-				StoreInteger("entityCount", m_aEntityCounts[i]);
-				EndObject();
+				EMCP_WB_LayerSummary item = new EMCP_WB_LayerSummary();
+				item.layerID = m_aLayerIDs[i];
+				item.entityCount = m_aEntityCounts[i];
+				ItemObject(item);
 			}
 			EndArray();
 		}

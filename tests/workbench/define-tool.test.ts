@@ -43,7 +43,7 @@ describe("runWorkbenchTool — envelope orchestration", () => {
     expect(res.isError).toBe(true);
   });
 
-  it("blocks on the mode guard before any I/O (no isError, with footer)", async () => {
+  it("blocks on the mode guard before any I/O with a structured error", async () => {
     const apiFunc = vi.fn(async () => ({}));
     const tool = defineWorkbenchTool({
       name: "wb_thing",
@@ -59,7 +59,8 @@ describe("runWorkbenchTool — envelope orchestration", () => {
     expect(apiFunc).not.toHaveBeenCalled();
     expect(res.content[0].text).toContain("play mode");
     expect(res.content[0].text).toContain(FOOTER);
-    expect(res.isError).toBeUndefined();
+    expect(res.isError).toBe(true);
+    expect(res.structuredContent).toMatchObject({ outcome: "blocked", tool: "wb_thing" });
   });
 
   it("uses modeAction (not the tool name) in the guard-block phrase", async () => {

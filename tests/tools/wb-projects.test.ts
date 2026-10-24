@@ -16,19 +16,17 @@ describe("wb_projects — exported data seam", () => {
 describe("wb_projects — validate", () => {
   it("rejects open without a name", () => {
     expect(t.validate!({ action: "open" })).toBe(
-      "Error: `name` is required for the open action. Provide the .gproj file path or addon name."
+      "Error: `path` is required for the open action. Provide the .gproj file path."
     );
   });
 
   it("rejects locate without a name", () => {
-    expect(t.validate!({ action: "locate" })).toBe(
-      "Error: `name` is required for the locate action."
-    );
+    expect(t.validate!({ action: "locate" })).toContain("absolute filesystem path");
   });
 
   it("accepts open/locate with a name and list with none", () => {
-    expect(t.validate!({ action: "open", name: "MyMod" })).toBeNull();
-    expect(t.validate!({ action: "locate", name: "MyMod" })).toBeNull();
+    expect(t.validate!({ action: "open", name: "MyMod.gproj", allowForeground: true })).toBeNull();
+    expect(t.validate!({ action: "locate", path: "C:/mods/MyMod" })).toBeNull();
     expect(t.validate!({ action: "list" })).toBeNull();
   });
 });

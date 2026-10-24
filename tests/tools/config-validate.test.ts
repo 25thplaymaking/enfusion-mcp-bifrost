@@ -1,11 +1,18 @@
 import { describe, it, expect, afterAll } from "vitest";
-import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
+import { runModChecks } from "../../src/tools/mod.js";
 
 const TEST_DIR = resolve(import.meta.dirname, "../../tmp-test-config-validate");
 
+/** Every class is "known" unless listed here. */
+function classIndex(unknown: string[] = []) {
+  return { hasClass: (name: string) => !unknown.includes(name) };
+}
+
 function setup(files: Record<string, string>) {
   rmSync(TEST_DIR, { recursive: true, force: true });
+  mkdirSync(TEST_DIR, { recursive: true });
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(TEST_DIR, path);
     mkdirSync(resolve(fullPath, ".."), { recursive: true });
@@ -13,14 +20,10 @@ function setup(files: Record<string, string>) {
   }
 }
 
-function cleanup() {
-  rmSync(TEST_DIR, { recursive: true, force: true });
-}
+afterAll(() => rmSync(TEST_DIR, { recursive: true, force: true }));
 
-afterAll(cleanup);
-
-describe("config validation test structures", () => {
-  it("valid .conf file parses correctly", () => {
+describe("mod validate: configs check", () => {
+  it("passes a valid .conf whose classes are all in the API index", () => {
     setup({
       "Configs/Factions/TestFaction.conf": `SCR_Faction {
  m_sKey "test_faction"
@@ -29,35 +32,52 @@ describe("config validation test structures", () => {
 }`,
     });
 
-    expect(existsSync(join(TEST_DIR, "Configs/Factions/TestFaction.conf"))).toBe(true);
+    const { issues, passedChecks } = runModChecks(TEST_DIR, ["configs"], classIndex());
+    expect(issues).toEqual([]);
+    expect(passedChecks).toEqual(["configs"]);
   });
 
-  it("invalid .conf file is detectable", () => {
+  it("errors on a .conf that does not parse", () => {
     setup({
-      "Configs/Bad.conf": "this is {{{ not valid enfusion text }}}",
+      "Configs/Bad.conf": "SCR_Faction {\n m_sKey \"x\"\n",
     });
 
-    expect(existsSync(join(TEST_DIR, "Configs/Bad.conf"))).toBe(true);
+    const { issues } = runModChecks(TEST_DIR, ["configs"], classIndex());
+    expect(issues).toHaveLength(1);
+    expect(issues[0].level).toBe("error");
+    expect(issues[0].message).toMatch(/^Configs\/Bad\.conf: Invalid config format/);
   });
 
-  it("valid mission header .conf", () => {
+  it("warns on root and nested classes missing from the API index", () => {
     setup({
-      "Missions/MissionHeader.conf": `SCR_MissionHeader {
+      "Missions/MissionHeader.conf": `OtherMod_MissionHeader {
  m_sName "Test Scenario"
- m_sDescription "A test"
- m_sWorldFile ""
- m_bIsModded 1
+ m_Entries {
+  OtherMod_Entry "{AAAAAAAAAAAAAAAA}" {
+  }
+ }
 }`,
     });
 
-    expect(existsSync(join(TEST_DIR, "Missions/MissionHeader.conf"))).toBe(true);
+    const { issues } = runModChecks(
+      TEST_DIR,
+      ["configs"],
+      classIndex(["OtherMod_MissionHeader", "OtherMod_Entry"])
+    );
+    const warnings = issues.filter((i) => i.level === "warning").map((i) => i.message);
+    expect(warnings).toContain(
+      'Missions/MissionHeader.conf: Root class "OtherMod_MissionHeader" not found in API index — may be from another mod or misspelled.'
+    );
+    expect(warnings).toContain('Missions/MissionHeader.conf: Class "OtherMod_Entry" not found in API index.');
   });
 
-  it("handles missing Configs directory gracefully", () => {
+  it("passes an addon with no config files", () => {
     setup({
       "Scripts/Game/Test.c": "class Test {}",
     });
 
-    expect(existsSync(join(TEST_DIR, "Configs"))).toBe(false);
+    const { issues, passedChecks } = runModChecks(TEST_DIR, ["configs"], classIndex());
+    expect(issues).toEqual([]);
+    expect(passedChecks).toEqual(["configs"]);
   });
 });

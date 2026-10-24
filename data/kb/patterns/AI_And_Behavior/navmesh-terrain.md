@@ -7,7 +7,7 @@
 | Type | Purpose |
 |---|---|
 | `Soldiers` | Human AI navigation (required) |
-| `BTRLike` | Vehicle AI (disabled as of v0.9.8 — AIs cannot drive yet) |
+| `BTRLike` | Vehicle AI navigation. Vanilla AI **does** drive wheeled vehicles in 1.8 (native `AICarMovementComponent` paths on `BTRLike`) — see *AI Orders & Movement*. The old "disabled as of v0.9.8" note is out of date. |
 | `LowRes` | Low-resolution navmesh for streaming on large terrains |
 
 **Streaming recommendation:** For large terrains, enable `Use Navmesh Streaming` on the Soldiers `NavmeshWorldComponent` and link the LowRes navmesh. Do NOT enable streaming on the LowRes component itself.
@@ -109,7 +109,7 @@ Instead of copying and regenerating the full navmesh:
 | `ForestSyncManager.et` | Forest destruction (MP) |
 | `DestructionManager.et` / `MPDestructionManager.et` | Destruction |
 | `MusicManager_Base.et` | Background music |
-| `RadioBroadcastManager.et` | Radio music |
+| `RadioBroadcastManager.et` | Radio music — mod only, not in the base game |
 | `AmbientSounds_Everon.et` | Wildlife ambient sounds |
 | `SoundWorld_Base.et` | Sound world base |
 

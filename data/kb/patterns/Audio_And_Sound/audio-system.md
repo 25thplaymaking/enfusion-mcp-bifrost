@@ -221,3 +221,23 @@ Synchronized DJ + music playlist across all players.
 - `MPDestructionManager` must be in world or MPD sounds never play.
 - Regenerate Times when bank `.wav` files change (stale timing cache).
 - Do not use `SCR_SoundManagerEntity` for UI sounds.
+
+---
+
+## Field notes (Bifrost addon, game 1.8, Sept–Oct 2026)
+
+Observed in an owned off-screen listen-server instance unless marked; **(unverified)** marks inferences or source reads never exercised.
+
+- **`AudioSystem.PlayEvent` leaves weapon-bank signals at 0** (`Distance`, environment
+  signals, `TimeSinceAutoSeqStart`), so only the point-blank layer plays — no far layers or
+  tails. Supply them as `SCR_SoundManagerModule` does: `Distance` from `AudioSystem.IsAudible`,
+  environment from `SoundWorld.GetMapValuesAtPos` **(fix compiled; not listened to)**.
+- **`AudioSystem.IsSoundPlayed` means "finished"** (vanilla uses it that way in four places).
+  Reading it as "still playing" restarted loops every tick or cut sounds short.
+- **Hand-authored ACP:** control connections must be native signal connections (encoded as
+  constant inputs they did nothing), and the emitter must contain its signal manager. An
+  import without errors is not evidence; a runtime probe of registered events and valid
+  playback handles is.
+- One-shots: banks are finite with one recording per event; release a one-shot's handle at its
+  duration, and for late joiners send a replicated start time instead of replaying finished
+  one-shots **(unverified)**.

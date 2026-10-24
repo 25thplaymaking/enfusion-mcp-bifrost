@@ -88,7 +88,9 @@ Key shared `SCR_ScenarioFrameworkSlotBase` properties:
 
 ## Task Prefabs (`Tasks/`)
 
-Standalone entities placed under the `TaskManager.et`.
+Task entities under `Prefabs/Systems/ScenarioFramework/Tasks/`; all inherit `{2A47D3DA85ECD809}Task.et`.
+They register themselves with the `SCR_TaskSystem` game system on init — there is no task
+manager entity to place (see *Task system* below).
 
 | Prefab | Entity class | Map icon | Notes |
 |---|---|---|---|
@@ -104,10 +106,13 @@ Standalone entities placed under the `TaskManager.et`.
 
 All tasks use `SCR_MapDescriptorComponent` with `VisibleOnMap 0` by default.
 
-### TaskManager (`Tasks/TaskManager.et`)
-- Inherits `TaskManager_Editor.et`.
-- Ships with one `SCR_ScenarioFrameworkTaskSupportEntity` child per task type (ClearArea, Defend, Deliver, Destroy, Extract, Kill, generic).
-- Must be present in the scene for tasks to register.
+### Task system (replaces the old TaskManager)
+- Tasks are driven by the `SCR_TaskSystem` game system, which is registered automatically
+  (BI wiki *Task System Usage*). Task prefabs placed in the world insert themselves on init.
+- `Tasks/TaskManager.et`, `TaskManager_Editor.et` and `SCR_ScenarioFrameworkTaskSupportEntity`
+  no longer exist in the game data or the script API (checked 2026-10-11). Older guides and
+  scenarios that place a TaskManager are out of date.
+- `SCR_ExtendedTask` adds parent/child task data on top of `SCR_Task`.
 
 ---
 
@@ -118,9 +123,8 @@ Trigger entities spawned **by Slots** (via `m_sObjectToSpawn`).
 | Prefab | Entity class | Shape | Purpose |
 |---|---|---|---|
 | `ScenarioFrameworkTrigger.et` | `SCR_ScenarioFrameworkTriggerEntity` | Sphere r=5 | Generic SF trigger. `m_eActivationPresence SPECIFIC_PREFAB_NAME`. Has `RplComponent`. |
-| `ScenarioFrameworkCharacterTrigger.et` | `SCR_CharacterTriggerEntity` | Sphere r=5 | Character-based SF trigger. `m_eActivationPresence ANY_CHARACTER`. Has `RplComponent`. |
 | `TriggerAnyPlayerSlow.et` | `SCR_CharacterTriggerEntity` | Sphere r=5 | Player-only, `m_eActivationPresence PLAYER`. Slow update (5 s). |
-| `TriggerCharacterSlow.et` | `SCR_CharacterTriggerEntity` | Sphere r=5 | `SCR_ChimeraCharacter` filter, `ANY_CHARACTER`. Has `RplComponent`. Used by delivery/extraction. |
+| `TriggerCharacterSlow.et` `{47D49EA6A216CFD5}` | `SCR_CharacterTriggerEntity` | Sphere r=5 | `SCR_ChimeraCharacter` filter, `ANY_CHARACTER`. Has `RplComponent`. Used by delivery/extraction. Older game data and guides call this prefab `ScenarioFrameworkCharacterTrigger.et` (same GUID); that file no longer exists. |
 | `TriggerDeliver.et` | `SCR_BaseTriggerEntity` | Sphere r=25 | `ChimeraCharacter` filter, update 3 s. No faction filter. |
 | `TriggerDominance.et` | `SCR_FactionDominanceTriggerEntity` | Sphere r=50 | US faction, `More than 0.528` ratio. Update 2 s. Used by clear-area. |
 | `TriggerExtraction.et` | `SCR_PlayersPresentTriggerEntity` | Sphere r=10 | US faction, `ChimeraCharacter` filter. Has `RplComponent`. Update 2 s. |
@@ -212,13 +216,16 @@ Trigger plugin `m_eActivationPresence` values seen:
 
 ## Typical Setup Pattern
 
-1. Place `GameModeSF.et` (or `_SinglePlayer`) as the game mode entity.
-2. Place `Tasks/TaskManager.et` in the scene.
-3. Place an `Area.et` entity at the mission location.
-4. Under it, add `Layer.et` children (or `LayerTask*.et` for tasks).
-5. Under each Layer, add `Slot*.et` leaves with `m_sObjectToSpawn` pointing to the desired prefab.
-6. Wire actions via `m_aTriggerActions` on Area/Layer/Slot.
-7. For reactive AI, add a `QRFSpawnpointsLayer.et` and attach `SCR_ScenarioFrameworkActionQRFDispacher` as an action.
+1. Set up the world with the **Game Mode Setup** World Editor plugin and its `ScenarioFramework.conf`
+   template, or place what it contains yourself (BI wiki *Scenario Framework → Prerequisites*):
+   `GameModeSF.et`, `SCR_AIWorld.et`, `FactionManager_USxUSSR.et`, `LoadoutManager_USxUSSR.et`,
+   `RadioManager.et`, `PerceptionManager.et`, `ScriptedChatEntity.et`; mission header class
+   `SCR_MissionHeaderCombatOps`.
+2. Place an `Area.et` entity at the mission location.
+3. Under it, add `Layer.et` children (or `LayerTask*.et` for tasks).
+4. Under each Layer, add `Slot*.et` leaves with `m_sObjectToSpawn` pointing to the desired prefab.
+5. Wire actions via `m_aTriggerActions` on Area/Layer/Slot.
+6. For reactive AI, add a `QRFSpawnpointsLayer.et` and attach `SCR_ScenarioFrameworkActionQRFDispacher` as an action.
 
 ---
 
@@ -579,7 +586,7 @@ Attached to a `Slot` — fires actions when items are added/removed from the spa
 
 ### Key pattern: SlotMoveTo with custom trigger condition
 
-`SlotMoveTo` spawns `ScenarioFrameworkCharacterTrigger.et` (`{47D49EA6A216CFD5}`) and uses
+`SlotMoveTo` spawns `TriggerCharacterSlow.et` (`{47D49EA6A216CFD5}`, formerly `ScenarioFrameworkCharacterTrigger.et`) and uses
 `SCR_ScenarioFrameworkPluginTrigger` with `m_eActivationPresence SPECIFIC_PREFAB_NAME` plus
 `SCR_CustomTriggerConditionsSpecificPrefabCount` to fire only when a character carrying enough
 items of a specific prefab enters the zone:
@@ -1415,16 +1422,15 @@ Area1 (Area.et)
 - Parent completes when SlotMoveTo1 (main trigger) AND all non-optional subtasks are done.
 - Optional subtask (Move 4) contributes to progress bar but does not block parent completion.
 - Each subtask is a full `LayerTaskMove` with its own `SlotMoveTo` (SCR_ScenarioFrameworkSlotExtraction
-  + SCR_ScenarioFrameworkPluginTrigger radius 4 + ScenarioFrameworkCharacterTrigger spawned object).
+  + SCR_ScenarioFrameworkPluginTrigger radius 4 + TriggerCharacterSlow spawned object, formerly ScenarioFrameworkCharacterTrigger).
 
 ### SlotMoveTo / SlotExtraction trigger setup
 
 ```
-SlotMoveTo (SlotMoveTo.et)
+SlotMoveTo (SlotMoveTo.et) : inherits {9C47DECB98FDA4DA}SlotExtraction.et
   SCR_ScenarioFrameworkSlotExtraction
     m_aPlugins
-      SCR_ScenarioFrameworkPluginTrigger { m_fAreaRadius 4 }
-    m_sObjectToSpawn  {47D49EA6A216CFD5}Prefabs/Systems/ScenarioFramework/Triggers/ScenarioFrameworkCharacterTrigger.et
+      SCR_ScenarioFrameworkPluginTrigger { m_fAreaRadius 10 }
 ```
 
 `SlotMoveTo.et` uses `SCR_ScenarioFrameworkSlotExtraction` (not `SCR_ScenarioFrameworkSlotBase`)
@@ -1507,7 +1513,7 @@ Area_A (Area.et)
             m_eActivationPresence ANY_CHARACTER
       Slot_Defend (SlotDefend.et)
         SCR_ScenarioFrameworkSlotDefend
-          m_sObjectToSpawn  ScenarioFrameworkCharacterTrigger.et
+          m_sObjectToSpawn  TriggerCharacterSlow.et
     Attacker_USSR (Layer.et)
       m_bEnableRepeatedSpawn 1
       m_iRepeatedSpawnNumber 2
@@ -1563,7 +1569,7 @@ also spawns a friendly character (the "target") that must survive, and has `m_sF
 In `SF-Sample-TaskDefendArea`, `SlotDefend` only spawns a trigger:
 ```
 SCR_ScenarioFrameworkSlotDefend {
-  m_sObjectToSpawn  ScenarioFrameworkCharacterTrigger.et
+  m_sObjectToSpawn  TriggerCharacterSlow.et
 }
 ```
 
@@ -1663,7 +1669,7 @@ DeliverIntel (Area.et)
     SlotDelivery1 (SlotDelivery.et)
       SCR_ScenarioFrameworkSlotDelivery
         SCR_ScenarioFrameworkPluginTrigger  m_fAreaRadius 15  m_bOnce 0
-        m_sObjectToSpawn  ScenarioFrameworkCharacterTrigger.et
+        m_sObjectToSpawn  TriggerCharacterSlow.et
         m_aAssociatedTaskLayers { "TaskDeliverIntel" }
     SlotPick1 (SlotPick.et)
       SCR_ScenarioFrameworkSlotPick
@@ -1821,7 +1827,7 @@ task prefab, and `EndMission` on finish. Also shows `m_sTriggerResource` on `SCR
 ```
 Area_A (Area.et)
   SCR_ScenarioFrameworkArea
-    m_sTriggerResource  ScenarioFrameworkCharacterTrigger.et   ← area-level trigger resource
+    m_sTriggerResource  TriggerCharacterSlow.et   ← area-level trigger resource
   LayerTaskMove1 (LayerTaskMove.et)
     SCR_ScenarioFrameworkLayerTaskMove
       m_sTaskTitle "Task Exfil"
@@ -1838,7 +1844,7 @@ Area_A (Area.et)
           m_sPlayerActivationNotificationTitle "#AR-CombatScenario_ExfilTrigger_Notification"
           m_bEnableAudio 1
           m_sCountdownAudio "SOUND_RESPAWNMENU"
-        m_sObjectToSpawn  ScenarioFrameworkCharacterTrigger.et
+        m_sObjectToSpawn  TriggerCharacterSlow.et
 ```
 
 ### Full `SCR_ScenarioFrameworkPluginTrigger` properties on `SlotExtraction`
@@ -1911,7 +1917,7 @@ Area_A (Area.et)
     SlotMoveTo1 (SlotMoveTo.et)
       SCR_ScenarioFrameworkSlotExtraction
         SCR_ScenarioFrameworkPluginTrigger  {}   ← empty = all defaults
-        m_sObjectToSpawn  ScenarioFrameworkCharacterTrigger.et
+        m_sObjectToSpawn  TriggerCharacterSlow.et
 ```
 
 ### Notes
@@ -2032,17 +2038,34 @@ StaticModelEntity : BarGate_01.et {07F043DD6AACCD0B}
 
 ## Prefab Path Reference
 
+Prefab resource GUIDs, read from references inside the shipped game data (2026-10-11). All paths
+are under `Prefabs/Systems/ScenarioFramework/`. Use the full `{GUID}path` form.
+
 | Prefab | GUID |
 |---|---|
 | `GameModeSF.et` | `{ECEEDB2D3737204B}` |
-| `GameModeSF_SinglePlayer.et` | (inherits above) |
-| `Components/Area.et` | `{59E8CDC50969206E}` component |
-| `Components/Layer.et` | `{5A2283EA2A0B4B14}` component |
-| `Components/SlotAI.et` | `{5A26B3E02AC77BA0}` component |
-| `Tasks/TaskManager.et` | `{87208DAD6F3C0DE2}` (base) |
+| `GameModeSF_SinglePlayer.et` | inherits `GameModeSF.et` |
+| `Components/Area.et` | not referenced by vanilla files — copy it from the Resource Browser |
+| `Components/Layer.et` | `{5F9FFF4BF027B3A3}` |
+| `Components/LayerTask.et` | `{5AF3BFDA2EAE56EA}` |
+| `Components/LayerTaskKill.et` | `{2008B4EE6C4D528E}` |
+| `Components/SlotAI.et` | `{8D43830F02C3F114}` |
+| `Components/SlotKill.et` | `{C70DC6CBD1AAEC9A}` |
+| `Components/SlotMoveTo.et` | `{A44004A770A5D8BE}` |
+| `Components/SlotExtraction.et` | `{9C47DECB98FDA4DA}` |
+| `Components/SlotPlayerTrigger.et` | `{D183AFE8DAF9793D}` |
+| `Tasks/Task.et` | `{2A47D3DA85ECD809}` (base of every task prefab) |
+| `Tasks/TaskKill.et` | `{CD66837DD5606573}` |
+| `Tasks/TaskClearArea.et` | `{A5E8E68E46D3E064}` |
+| `Tasks/TaskMove.et` | `{54ED4B8EDCFB2DBB}` |
+| `Triggers/Trigger_Base.et` | `{B7AB0899A91A985D}` |
 | `Triggers/ScenarioFrameworkTrigger.et` | `{DA58C3DF4455555E}` |
 | `Triggers/TriggerCharacterSlow.et` | `{47D49EA6A216CFD5}` |
 | `Triggers/TriggerDominance.et` | `{2CB3F93211D06F83}` |
+
+The `{59E8CDC50969206E}`, `{5A2283EA2A0B4B14}` and `{5A26B3E02AC77BA0}` values this table used
+to list for Area/Layer/SlotAI are **component instance IDs inside those prefabs**, not prefab
+resource GUIDs. A prefab reference built from them points at nothing.
 | `Triggers/TriggerExtraction.et` | `{374...}` |
 | `Compositions/QRFSpawnpointsLayer.et` | `{5F9FFF4BF027B3A3}` (base Layer) |
 
@@ -2168,23 +2191,19 @@ supports manual finish, state inspection, restore to default, and runtime testin
 Prefab GUIDs used in `wb_entity_create` must be exact. Wrong GUIDs cause **silent failures** —
 the tool reports success but the entity does not appear (or appears as a default entity).
 
-**Confirmed working GUIDs** (from Prefab Path Reference section above):
-- Area: `{59E8CDC50969206E}` (component GUID — use full prefab path for entity creation)
-- SlotAI component: `{5A26B3E02AC77BA0}`
-- TaskManager base: `{87208DAD6F3C0DE2}`
+**Earlier placement failures used the wrong IDs.** The GUIDs previously listed here for Area,
+Layer and SlotAI were component instance IDs (see *Prefab Path Reference*), and the
+TaskManager prefab no longer exists, so those `wb_entity_create` attempts could not have
+worked. Use the prefab GUIDs from the reference table, e.g.
+`{8D43830F02C3F114}Prefabs/Systems/ScenarioFramework/Components/SlotAI.et`.
+Placing SF prefabs with the corrected GUIDs has **not yet been re-tested live**; if it still
+fails silently, have the user drag the prefab from the Resource Browser.
 
-**Workaround:** `wb_entity_create` cannot place base game SF prefabs reliably — all formats tried
-(GUID prefix, `enfusion://`, `~ArmaReforger:` short form) result in silent failures.
-Always instruct the user to drag from the Resource Browser instead.
-
-Confirmed correct Resource Browser paths (from BI wiki):
-- `ArmaReforger/Prefabs/ScenarioFramework/Tasks/TaskManager.et`
-- `ArmaReforger/Prefabs/ScenarioFramework/Components/Area.et`
-- `ArmaReforger/Prefabs/ScenarioFramework/Components/Layer.et`
-- `ArmaReforger/Prefabs/ScenarioFramework/Components/SlotAI.et`
-- `ArmaReforger/Prefabs/ScenarioFramework/Components/SlotPlayerTrigger.et`
-- `ArmaReforger/Prefabs/ScenarioFramework/Components/LayerTaskKill.et`
-- `ArmaReforger/Prefabs/Scenario Framework/GameModeSF.et` (note the space in folder name)
+Resource Browser paths (verified against the game data, 2026-10-11) — all under
+`ArmaReforger/Prefabs/Systems/ScenarioFramework/`:
+- `Components/Area.et`, `Components/Layer.et`, `Components/SlotAI.et`
+- `Components/SlotPlayerTrigger.et`, `Components/LayerTaskKill.et`
+- `GameModeSF.et` (no space in the folder name)
 
 **Faction keys** (`m_sFactionKey`) cannot be set via the `wb_entity_modify setProperty` tool —
 `SetVariableValue` returns false for this property. Must be set manually in the Attribute panel.
@@ -2208,7 +2227,7 @@ Steps:
    `~ArmaReforger:Configs/Workbench/GameModeSetup/ScenarioFramework.conf`
    Click **Next**.
 2. **World Scan** screen → click **Skip** (for a clean/new world).
-3. **World Configuration** screen → click **Create entities** — places GameMode, TaskManager, and all required entities in the active layer.
+3. **World Configuration** screen → click **Create entities** — places the GameMode and the other required entities in the active layer.
 4. **World Configuration Completed** → review issues → **Next**.
 5. **Mission Header** screen → click **Create header** (makes scenario appear in main menu) → **Next** → **Close**.
 
@@ -2267,13 +2286,13 @@ In **OnTaskFinished** on the final LayerTask:
 | Asset | Path |
 |---|---|
 | SF config (Game Mode Setup) | `~ArmaReforger:Configs/Workbench/GameModeSetup/ScenarioFramework.conf` |
-| Area | `~ArmaReforger:Prefabs/ScenarioFramework/Components/Area.et` |
-| Layer | `~ArmaReforger:Prefabs/ScenarioFramework/Components/Layer.et` |
-| LayerTaskMove | `~ArmaReforger:Prefabs/ScenarioFramework/Components/LayerTaskMove.et` |
-| LayerTaskDestroy | `~ArmaReforger:Prefabs/ScenarioFramework/Components/LayerTaskDestroy.et` |
-| SlotMoveTo | `~ArmaReforger:Prefabs/ScenarioFramework/Components/SlotMoveTo.et` |
-| SlotDestroy | `~ArmaReforger:Prefabs/ScenarioFramework/Components/SlotDestroy.et` |
-| Slot (generic) | `~ArmaReforger:Prefabs/ScenarioFramework/Components/Slot.et` |
+| Area | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/Area.et` |
+| Layer | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/Layer.et` |
+| LayerTaskMove | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/LayerTaskMove.et` |
+| LayerTaskDestroy | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/LayerTaskDestroy.et` |
+| SlotMoveTo | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/SlotMoveTo.et` |
+| SlotDestroy | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/SlotDestroy.et` |
+| Slot (generic) | `~ArmaReforger:Prefabs/Systems/ScenarioFramework/Components/Slot.et` |
 | SpawnPoint_US | `~ArmaReforger:Prefabs/MP/Spawning/SpawnPoint_US.et` |
 | ArsenalBox_US | `~ArmaReforger:Prefabs/Props/Military/Arsenal/ArsenalBoxes/US/ArsenalBox_US.et` |
 | M1025 (Humvee) | `~ArmaReforger:Prefabs/Vehicles/Wheeled/M998/M1025.et` |
