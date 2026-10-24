@@ -762,8 +762,7 @@ export function registerAnimationGraph(server: McpServer, config: Config): void 
         hasSteeringLinkage: z.boolean().default(false).describe("(author/setup) Add steering axis IK chains."),
         seatTypes: z.array(z.enum(["driver", "gunner", "commander", "passenger"])).default(["driver"]).describe("(author/setup) Seat types for the vehicle."),
         dialList: z.array(z.string()).default([]).describe("(author/setup) Variable names to use as dials (e.g. ['Engine_RPM', 'SPEED'])."),
-        outputPath: z.string().optional().describe("(author/setup) Destination folder within mod project (e.g. 'Assets/Vehicles/MyTruck/workspaces')."),
-        modName: z.string().optional().describe("(author/setup) Addon folder name. Uses default if omitted."),
+        outputPath: z.string().optional().describe("(author/setup) Destination folder within mod project. Defaults to 'Assets/Vehicles/<vehicleName>/workspaces'."),
         projectPath: z.string().optional().describe("(author/inspect/setup) Mod project root. Uses default if omitted."),
 
         // ── inspect params ──
@@ -817,12 +816,14 @@ export function registerAnimationGraph(server: McpServer, config: Config): void 
           dialList: opts.dialList,
         };
 
+        const outputDir = opts.outputPath ?? `Assets/Vehicles/${opts.vehicleName}/workspaces`;
+
         try {
           const agrContent = generateAgrAuthor(cfg);
           const astContent = generateAstAuthor(cfg);
 
-          const agrPath = validateProjectPath(basePath, `${opts.outputPath}/${opts.vehicleName}.agr`);
-          const astPath = validateProjectPath(basePath, `${opts.outputPath}/${opts.vehicleName}.ast`);
+          const agrPath = validateProjectPath(basePath, `${outputDir}/${opts.vehicleName}.agr`);
+          const astPath = validateProjectPath(basePath, `${outputDir}/${opts.vehicleName}.ast`);
 
           mkdirSync(dirname(agrPath), { recursive: true });
           writeFileSync(agrPath, agrContent, "utf-8");
@@ -834,8 +835,8 @@ export function registerAnimationGraph(server: McpServer, config: Config): void 
                 type: "text",
                 text: [
                   `Generated animation graph files for ${opts.vehicleName}:`,
-                  `  AGR: ${opts.outputPath}/${opts.vehicleName}.agr`,
-                  `  AST: ${opts.outputPath}/${opts.vehicleName}.ast`,
+                  `  AGR: ${outputDir}/${opts.vehicleName}.agr`,
+                  `  AST: ${outputDir}/${opts.vehicleName}.ast`,
                   ``,
                   `Next steps:`,
                   `1. Open Workbench and register both files (right-click -> Add to project)`,
@@ -1026,23 +1027,24 @@ export function registerAnimationGraph(server: McpServer, config: Config): void 
 
         if (opts.step === "all" || opts.step === "agr") {
           const basePath = opts.projectPath || config.projectPath;
+          const outputDir = opts.outputPath ?? `Assets/Vehicles/${opts.vehicleName}/workspaces`;
           if (basePath) {
             try {
               const agrContent = generateAgrAuthor(cfg);
               const astContent = generateAstAuthor(cfg);
               const agrFilePath = validateProjectPath(
                 basePath,
-                `${opts.outputPath}/${opts.vehicleName}.agr`
+                `${outputDir}/${opts.vehicleName}.agr`
               );
               const astFilePath = validateProjectPath(
                 basePath,
-                `${opts.outputPath}/${opts.vehicleName}.ast`
+                `${outputDir}/${opts.vehicleName}.ast`
               );
               mkdirSync(dirname(agrFilePath), { recursive: true });
               writeFileSync(agrFilePath, agrContent, "utf-8");
               writeFileSync(astFilePath, astContent, "utf-8");
               parts.push(
-                `## Step 1: AGR + AST Files Generated\n- ${opts.outputPath}/${opts.vehicleName}.agr\n- ${opts.outputPath}/${opts.vehicleName}.ast\nRegister both files in Workbench to assign GUIDs.`
+                `## Step 1: AGR + AST Files Generated\n- ${outputDir}/${opts.vehicleName}.agr\n- ${outputDir}/${opts.vehicleName}.ast\nRegister both files in Workbench to assign GUIDs.`
               );
             } catch (e) {
               const msg = e instanceof Error ? e.message : String(e);

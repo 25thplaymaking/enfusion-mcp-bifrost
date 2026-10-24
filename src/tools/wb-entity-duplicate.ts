@@ -103,9 +103,12 @@ export function registerWbEntityDuplicate(
       }
 
       // Step 1: Get the ancestor prefab path from Workbench
+      // tolerateErrorStatus: the explicit status checks below give better messages
+      // than the client's generic in-band error.
       const ancestorResp = await client.call<{ status: string; message?: string; ancestorPath?: string }>(
         "EMCP_WB_Prefabs",
-        { action: "getAncestor", entityName }
+        { action: "getAncestor", entityName },
+        { tolerateErrorStatus: true }
       );
 
       if (ancestorResp.status !== "ok" || !ancestorResp.ancestorPath) {
@@ -116,6 +119,7 @@ export function registerWbEntityDuplicate(
               text: `Could not get ancestor prefab for '${entityName}': ${ancestorResp.message ?? JSON.stringify(ancestorResp)}`,
             },
           ],
+          isError: true,
         };
       }
 
@@ -161,7 +165,7 @@ export function registerWbEntityDuplicate(
         const regResp = await client.call<{ status: string; message?: string }>(
           "EMCP_WB_Resources",
           { action: "register", path: absDestPath, buildRuntime: false },
-          { timeout: 30000 }
+          { timeout: 30000, tolerateErrorStatus: true }
         );
 
         if (regResp.status !== "ok") {
@@ -205,7 +209,8 @@ export function registerWbEntityDuplicate(
       try {
         const posResp = await client.call<{ status: string; value?: string }>(
           "EMCP_WB_ModifyEntity",
-          { action: "getProperty", name: entityName, propertyKey: "coords" }
+          { action: "getProperty", name: entityName, propertyKey: "coords" },
+          { tolerateErrorStatus: true }
         );
         if (posResp.status === "ok" && posResp.value) {
           position = posResp.value;

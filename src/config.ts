@@ -8,7 +8,7 @@ import { isWsl, detectWslHostIp } from "./utils/wsl-path.js";
 export interface Config {
   /** Path to "Arma Reforger Tools" installation */
   workbenchPath: string;
-  /** Default project directory for project_browse */
+  /** Default project directory for the project tool (action=browse) */
   projectPath: string;
   /** Path to base game installation (auto-derived from workbenchPath) */
   gamePath: string;

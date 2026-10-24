@@ -164,6 +164,21 @@ describe("documentation integrity", () => {
     ).toEqual([]);
   });
 
+  it("the create-mod and modify-mod prompts only name registered tools", () => {
+    // Regression: both prompts told the model to call mod_create, mod_validate,
+    // prefab_create and project_read/write/browse long after those were merged
+    // into mod/prefab/project with an action parameter, so /create-mod produced a
+    // plan built on dead names. Bolded snake_case words in the prompts are tool
+    // references (single bold words such as **phases** are prose).
+    const known = new Set(DECLARED);
+    for (const f of readdirSync(join(REPO, "src", "prompts")).filter((n) => n.endsWith(".ts"))) {
+      const body = readFileSync(join(REPO, "src", "prompts", f), "utf-8");
+      const referenced = [...body.matchAll(/\*\*([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\*\*/g)].map((m) => m[1]);
+      const phantom = [...new Set(referenced)].filter((n) => !known.has(n));
+      expect(phantom, `${f} references tools that are not registered: ${phantom.join(", ")}`).toEqual([]);
+    }
+  });
+
   it("CONTEXT.md states the current tool count, not a stale one", () => {
     const ctx = readFileSync(join(REPO, "CONTEXT.md"), "utf-8");
     // 63 = 24 offline + 39 wb_*. Asserted as a literal so a tool addition that

@@ -96,12 +96,15 @@ function derivePrefix(name: string): string {
 
 // ─── validate helpers ─────────────────────────────────────────────────────────
 
-interface ValidationIssue {
+export interface ValidationIssue {
   level: "error" | "warning" | "info";
   message: string;
 }
 
-type CheckName = "structure" | "gproj" | "scripts" | "prefabs" | "configs" | "references" | "naming";
+/** The only SearchEngine method the checks use, so tests can pass a stub. */
+type ClassIndex = Pick<SearchEngine, "hasClass">;
+
+export type CheckName = "structure" | "gproj" | "scripts" | "prefabs" | "configs" | "references" | "naming";
 
 const ALL_CHECKS: CheckName[] = ["structure", "gproj", "scripts", "prefabs", "configs", "references", "naming"];
 
@@ -260,7 +263,7 @@ function checkPrefabs(projectPath: string): ValidationIssue[] {
   return issues;
 }
 
-function checkConfigs(projectPath: string, searchEngine?: SearchEngine): ValidationIssue[] {
+function checkConfigs(projectPath: string, searchEngine?: ClassIndex): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const allConfigs = findFiles(projectPath, ".conf");
 
@@ -306,7 +309,7 @@ function checkConfigs(projectPath: string, searchEngine?: SearchEngine): Validat
   return issues;
 }
 
-function checkReferences(projectPath: string, searchEngine: SearchEngine): ValidationIssue[] {
+function checkReferences(projectPath: string, searchEngine: ClassIndex): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   const allScripts = findFiles(projectPath, ".c");
@@ -382,6 +385,35 @@ function checkNaming(projectPath: string): ValidationIssue[] {
   }
 
   return issues;
+}
+
+/**
+ * Run the selected validation checks against an addon directory. Exported so the
+ * checks can be tested directly instead of only through the `mod` tool.
+ */
+export function runModChecks(
+  basePath: string,
+  checks: CheckName[] = ALL_CHECKS,
+  searchEngine: ClassIndex
+): { issues: ValidationIssue[]; passedChecks: CheckName[] } {
+  const checkMap: Record<CheckName, () => ValidationIssue[]> = {
+    structure: () => checkStructure(basePath),
+    gproj: () => checkGproj(basePath),
+    scripts: () => checkScripts(basePath),
+    prefabs: () => checkPrefabs(basePath),
+    configs: () => checkConfigs(basePath, searchEngine),
+    references: () => checkReferences(basePath, searchEngine),
+    naming: () => checkNaming(basePath),
+  };
+
+  const issues: ValidationIssue[] = [];
+  const passedChecks: CheckName[] = [];
+  for (const check of checks) {
+    const found = checkMap[check]();
+    if (found.length === 0) passedChecks.push(check);
+    issues.push(...found);
+  }
+  return { issues, passedChecks };
 }
 
 // ─── registerMod ──────────────────────────────────────────────────────────────
@@ -714,8 +746,8 @@ export function registerMod(
               // Ensure directory exists (prefabs go in type-specific subdirs)
               const prefabDir = join(addonDir, "Prefabs");
               mkdirSync(prefabDir, { recursive: true });
-              // Note: prefab file generation is done via prefab_create tool for full control
-              createdFiles.push(`(Use prefab_create for: ${prefabName})`);
+              // Note: prefab file generation is done via the prefab tool (action=create) for full control
+              createdFiles.push(`(Use prefab action=create for: ${prefabName})`);
             }
 
             // Apply pattern configs
@@ -803,6 +835,7 @@ export function registerMod(
                 text: `Invalid project path: "${projectPath}". Path must be within the configured project directory (${config.projectPath}).`,
               },
             ],
+            isError: true,
           };
         }
       } else {
@@ -830,28 +863,11 @@ export function registerMod(
         };
       }
 
-      const enabledChecks = (checks as CheckName[] | undefined) ?? ALL_CHECKS;
-      const allIssues: ValidationIssue[] = [];
-
-      const checkMap: Record<CheckName, () => ValidationIssue[]> = {
-        structure: () => checkStructure(basePath),
-        gproj: () => checkGproj(basePath),
-        scripts: () => checkScripts(basePath),
-        prefabs: () => checkPrefabs(basePath),
-        configs: () => checkConfigs(basePath, searchEngine),
-        references: () => checkReferences(basePath, searchEngine),
-        naming: () => checkNaming(basePath),
-      };
-
-      const passedChecks: string[] = [];
-
-      for (const check of enabledChecks) {
-        const issues = checkMap[check]();
-        if (issues.length === 0) {
-          passedChecks.push(check);
-        }
-        allIssues.push(...issues);
-      }
+      const { issues: allIssues, passedChecks } = runModChecks(
+        basePath,
+        (checks as CheckName[] | undefined) ?? ALL_CHECKS,
+        searchEngine
+      );
 
       // Format report
       const errors = allIssues.filter((i) => i.level === "error");

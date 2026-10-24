@@ -1,14 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { describe, it, expect, afterAll } from "vitest";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
-
-// We test the validation logic by importing the check functions indirectly
-// through a test addon structure
+import { runModChecks } from "../../src/tools/mod.js";
 
 const TEST_DIR = resolve(import.meta.dirname, "../../tmp-test-validate");
 
+/** Every class is "known" unless listed here. */
+function classIndex(unknown: string[] = []) {
+  return { hasClass: (name: string) => !unknown.includes(name) };
+}
+
 function setup(files: Record<string, string>) {
   rmSync(TEST_DIR, { recursive: true, force: true });
+  mkdirSync(TEST_DIR, { recursive: true });
   for (const [path, content] of Object.entries(files)) {
     const fullPath = join(TEST_DIR, path);
     mkdirSync(resolve(fullPath, ".."), { recursive: true });
@@ -16,23 +20,25 @@ function setup(files: Record<string, string>) {
   }
 }
 
-function cleanup() {
-  rmSync(TEST_DIR, { recursive: true, force: true });
+function messages(level: "error" | "warning" | "info", issues: { level: string; message: string }[]) {
+  return issues.filter((i) => i.level === level).map((i) => i.message);
 }
 
-afterAll(cleanup);
-
-describe("mod_validate test structures", () => {
-  it("valid addon has .gproj, Scripts/Game, Prefabs", () => {
-    setup({
-      "TestMod.gproj": `GameProject {
+const GOOD_GPROJ = `GameProject {
  ID "TestMod"
  GUID "AAAAAAAAAAAAAAAA"
  TITLE "Test Mod"
  Dependencies {
   "58D0FB3206B6F859"
  }
-}`,
+}`;
+
+afterAll(() => rmSync(TEST_DIR, { recursive: true, force: true }));
+
+describe("mod validate checks", () => {
+  it("passes every check on a well-formed addon", () => {
+    setup({
+      "TestMod.gproj": GOOD_GPROJ,
       "Scripts/Game/TM_Test.c": `class TM_Test : ScriptComponent
 {
   override void EOnInit(IEntity owner)
@@ -45,20 +51,14 @@ describe("mod_validate test structures", () => {
 }`,
     });
 
-    expect(existsSync(join(TEST_DIR, "TestMod.gproj"))).toBe(true);
-    expect(existsSync(join(TEST_DIR, "Scripts/Game/TM_Test.c"))).toBe(true);
-    expect(existsSync(join(TEST_DIR, "Prefabs/Test.et"))).toBe(true);
+    const { issues, passedChecks } = runModChecks(TEST_DIR, undefined, classIndex());
+    expect(issues).toEqual([]);
+    expect(passedChecks).toEqual(["structure", "gproj", "scripts", "prefabs", "configs", "references", "naming"]);
   });
 
-  it("detects scripts outside Scripts/Game/", () => {
+  it("flags a script outside a valid module folder as an error", () => {
     setup({
-      "TestMod.gproj": `GameProject {
- ID "TestMod"
- GUID "AAAAAAAAAAAAAAAA"
- Dependencies {
-  "58D0FB3206B6F859"
- }
-}`,
+      "TestMod.gproj": GOOD_GPROJ,
       "BadScript.c": `class BadClass
 {
 }`,
@@ -67,12 +67,15 @@ describe("mod_validate test structures", () => {
 }`,
     });
 
-    // BadScript.c is in the root, not in Scripts/Game/
-    // The validate tool would flag this as an error
-    expect(existsSync(join(TEST_DIR, "BadScript.c"))).toBe(true);
+    const { issues, passedChecks } = runModChecks(TEST_DIR, ["scripts"], classIndex());
+    const errors = messages("error", issues);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("BadScript.c");
+    expect(errors[0]).toContain("silently ignored");
+    expect(passedChecks).not.toContain("scripts");
   });
 
-  it("detects missing base game dependency", () => {
+  it("flags a missing base game dependency", () => {
     setup({
       "TestMod.gproj": `GameProject {
  ID "TestMod"
@@ -82,33 +85,74 @@ describe("mod_validate test structures", () => {
 }`,
     });
 
-    expect(existsSync(join(TEST_DIR, "TestMod.gproj"))).toBe(true);
+    const { issues } = runModChecks(TEST_DIR, ["gproj"], classIndex());
+    expect(messages("error", issues)).toEqual([
+      "TestMod.gproj: Missing base game dependency (58D0FB3206B6F859)",
+    ]);
   });
 
-  it("detects invalid prefab format", () => {
+  it("flags a missing Dependencies block and a malformed GUID", () => {
     setup({
       "TestMod.gproj": `GameProject {
  ID "TestMod"
- GUID "AAAAAAAAAAAAAAAA"
- Dependencies {
-  "58D0FB3206B6F859"
- }
+ GUID "NOT-A-GUID"
 }`,
-      "Prefabs/Bad.et": "this is not valid enfusion text {{{}}}",
     });
 
-    expect(existsSync(join(TEST_DIR, "Prefabs/Bad.et"))).toBe(true);
+    const { issues } = runModChecks(TEST_DIR, ["gproj"], classIndex());
+    expect(messages("error", issues)).toEqual(["TestMod.gproj: Missing Dependencies block — mod won't load"]);
+    expect(messages("warning", issues)).toEqual([
+      'TestMod.gproj: GUID "NOT-A-GUID" is not a valid 16-char hex string',
+    ]);
   });
 
-  it("detects missing .gproj", () => {
+  it("flags a prefab that does not parse", () => {
     setup({
-      "Scripts/Game/Test.c": `class Test { }`,
+      "TestMod.gproj": GOOD_GPROJ,
+      "Prefabs/Bad.et": "GenericEntity {\n ID \"BBBBBBBBBBBBBBBB\"\n",
     });
 
-    // No .gproj file at all
-    const gprojFiles = ["TestMod.gproj", "test.gproj"].filter((f) =>
-      existsSync(join(TEST_DIR, f))
-    );
-    expect(gprojFiles.length).toBe(0);
+    const { issues } = runModChecks(TEST_DIR, ["prefabs"], classIndex());
+    const errors = messages("error", issues);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/^Prefabs\/Bad\.et: Invalid prefab format/);
+  });
+
+  it("flags a missing .gproj and a missing Scripts/Game folder", () => {
+    setup({
+      "Scripts/Test.c": `class Test { }`,
+    });
+
+    const { issues } = runModChecks(TEST_DIR, ["structure"], classIndex());
+    expect(messages("error", issues)).toEqual(["No .gproj file found in project root"]);
+    expect(messages("warning", issues)).toEqual(["Missing expected directory: Scripts/Game"]);
+  });
+
+  it("warns when a script extends a class missing from the API index", () => {
+    setup({
+      "TestMod.gproj": GOOD_GPROJ,
+      "Scripts/Game/TM_Thing.c": `class TM_Thing : OtherMod_Base
+{
+}`,
+    });
+
+    const { issues } = runModChecks(TEST_DIR, ["references"], classIndex(["OtherMod_Base"]));
+    expect(messages("warning", issues)).toEqual([
+      'Scripts/Game/TM_Thing.c: Extends "OtherMod_Base" which is not in the API index (may be from another mod)',
+    ]);
+  });
+
+  it("reports classes that break the dominant prefix", () => {
+    setup({
+      "TestMod.gproj": GOOD_GPROJ,
+      "Scripts/Game/TM_A.c": "class TM_A {}",
+      "Scripts/Game/TM_B.c": "class TM_B {}",
+      "Scripts/Game/XX_C.c": "class XX_C {}",
+    });
+
+    const { issues } = runModChecks(TEST_DIR, ["naming"], classIndex());
+    expect(messages("info", issues)).toEqual([
+      '1 class(es) use prefix "XX_" instead of the most common prefix "TM_"',
+    ]);
   });
 });
