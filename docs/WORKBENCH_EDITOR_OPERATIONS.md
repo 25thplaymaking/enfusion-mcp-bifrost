@@ -15,7 +15,7 @@ An operation is supported only when grounded by all applicable sources:
 
 1. Enfusion public API index (`data/api/enfusion-classes.json` and `data/api/arma-classes.json`).
 2. Bundled official BI Wiki capture (`data/wiki/pages.json`: 271 pages; newest official revision 2026-08-20).
-3. Packed base-game scripts and resources from `data007.pak`, inspected with PAC1CLI.
+3. Packed base-game scripts and resources from `data007.pak`.
 4. A protocol, parser, or Workbench compile check appropriate to the operation.
 
 Bohemia does not distribute Workbench's native C++ implementation. “Source reviewed” therefore means the complete public script surface, shipped WorkbenchGame plugin scripts, packed serialized resources, official documentation, and live NET API behavior—not unavailable proprietary native code.

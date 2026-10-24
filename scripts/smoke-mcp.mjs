@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { tmpdir, homedir } from "node:os";
 import { join, resolve, dirname, basename } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -16,7 +16,7 @@ const transport = new StdioClientTransport({
     ENFUSION_PROJECT_PATH: outputRoot,
     ENFUSION_WORKBENCH_PROFILE:
       process.env.ENFUSION_WORKBENCH_PROFILE ??
-      "C:\\Users\\Bryce\\Documents\\My Games\\ArmaReforgerWorkbench",
+      join(homedir(), "Documents", "My Games", "ArmaReforgerWorkbench"),
   },
   stderr: "pipe",
 });

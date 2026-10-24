@@ -2,6 +2,8 @@
 
 Focus-safe MCP suite for Arma Reforger modding: official API/Wiki research, packed-game inspection, authoring, Workbench control, structured compile feedback, and in-editor testing in one direct process.
 
+Built and maintained with a lot of labour and love by the Task Force Halberd team, through months of real Bifrost mod work. It grew out of the MIT-licensed enfusion-mcp by Articulated7 and the community forks that followed it (see [Credits](#credits)).
+
 See the [Bifrost Workbench Editor Operations Manual](docs/WORKBENCH_EDITOR_OPERATIONS.md) for the reviewed editor APIs, asset formats, operation outcomes, focus behavior, evidence, and known engine boundaries.
 
 For Codex/Astra, see the [Codex workflow](docs/CODEX_WORKBENCH.md). Start with `wb_capabilities` (`live=true` for actual project/editor state), use `project` for source inspection and precise edits, and `wb_batch` for ordered live operations.
@@ -24,13 +26,13 @@ Register the built server with a direct Node executable. Do not use a `cmd`, `np
   "mcpServers": {
     "enfusion-mcp": {
       "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": ["C:\\Users\\Bryce\\source\\repos\\enfusion-mcp-bifrost\\dist\\index.js"],
+      "args": ["C:\\path\\to\\enfusion-mcp-bifrost\\dist\\index.js"],
       "env": {
-        "ENFUSION_WORKBENCH_PATH": "P:\\SteamLibrary\\steamapps\\common\\Arma Reforger Tools\\Workbench",
-        "ENFUSION_GAME_PATH": "P:\\SteamLibrary\\steamapps\\common\\Arma Reforger",
-        "ENFUSION_PROJECT_PATH": "C:\\Users\\Bryce\\Documents\\My Games\\ArmaReforgerWorkbench\\addons",
-        "ENFUSION_WORKBENCH_PROFILE": "C:\\Users\\Bryce\\Documents\\My Games\\ArmaReforgerWorkbench",
-        "ENFUSION_DEFAULT_MOD": "Bifrost-Dev"
+        "ENFUSION_WORKBENCH_PATH": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Arma Reforger Tools\\Workbench",
+        "ENFUSION_GAME_PATH": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Arma Reforger",
+        "ENFUSION_PROJECT_PATH": "C:\\Users\\<you>\\Documents\\My Games\\ArmaReforgerWorkbench\\addons",
+        "ENFUSION_WORKBENCH_PROFILE": "C:\\Users\\<you>\\Documents\\My Games\\ArmaReforgerWorkbench",
+        "ENFUSION_DEFAULT_MOD": "YourMod"
       }
     }
   }
@@ -281,19 +283,26 @@ Rarely needed — the defaults are correct for almost everyone.
 - **Node.js 20+**
 - **Arma Reforger Tools** (Steam) — needed for the live `wb_*` bridge tools, and for
   `mod` with `action: "build"` (which additionally needs the *Profiling Build* beta
-  for `ArmaReforgerWorkbenchSteamDiag.exe`). The other 24 tools work without it.
+  for `ArmaReforgerWorkbenchSteamDiag.exe`). The 26 offline tools work without it.
 
 ## Development
 
 ```bash
-git clone https://github.com/steffenbk/enfusion-mcp-BK.git
-cd enfusion-mcp-BK
+git clone https://github.com/25thplaymaking/enfusion-mcp-bifrost.git
+cd enfusion-mcp-bifrost
 npm install
 npm run scrape   # Build API index from Workbench docs
 npm run build
 npm test
 ```
 
+## Credits
+
+- **Articulated7**: the original enfusion-mcp, which this project started from.
+- **steffenbk** ([enfusion-mcp-BK](https://github.com/steffenbk/enfusion-mcp-BK)): the knowledge base, scenario and menu tooling, and many bridge and PAK fixes.
+- **arma-reforger-competitive** ([arma-enfusion-mcp](https://github.com/arma-reforger-competitive/arma-enfusion-mcp)): the Workbench tool envelope and the launch/status rework.
+- **Task Force Halberd**: the Bifrost Workbench editor suite, native inspection and editing across ten editor modules, playbooks, the agent tool index, and the fixes since.
+
 ## License
 
-MIT
+MIT. The original copyright notice is kept in [LICENSE](LICENSE).
