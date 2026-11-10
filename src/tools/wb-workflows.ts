@@ -14,7 +14,6 @@ export const EDITOR_ROUTES = [
   { module: "particleEditor", tools: ["editor_asset"], source: "project", formats: [".ptc"], boundary: "Basic emitter generation plus full text source editing; no public live graph-node API." },
   { module: "proceduralAnimationEditor", tools: ["editor_asset"], source: "project", formats: [".pap", ".siga"], boundary: "Signal/bone graph source editing; no public live graph-node API." },
   { module: "behaviorEditor", tools: ["wb_editor_module"], source: "project", formats: [], boundary: "Common module control only; no verified serialized graph generator." },
-  { module: "navmeshEditor", tools: ["wb_editor_module"], source: "project", formats: [], boundary: "Native module navigation and exposed containers. Generation requires an observed/documented editor action and resource verification." },
 ] as const;
 
 export const batchSchema = {
