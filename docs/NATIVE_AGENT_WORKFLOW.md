@@ -12,7 +12,7 @@ wb_playbook {"query": "import a model from blender"}   # -> preconditions,
                                                           #    ordered tool calls,
                                                           #    silent-failure traps,
                                                           #    verification
-wb_playbook {"query": "catalogue"}                      # all 19
+wb_playbook {"query": "catalogue"}                      # all 20
 ```
 
 This is not ceremony. The expensive Enfusion failures are **silent**: a menu that

@@ -594,6 +594,42 @@
       "humanStep": true
     },
     {
+      "id": "test-an-item-in-game",
+      "title": "Test an item in game (the five-step item test)",
+      "goal": "One item looked at properly, its defect stated and reproduced, and fixed or blocked with a reason, without rerunning suites.",
+      "triggers": [
+        "test in game",
+        "in-game check",
+        "in game test",
+        "verify in game",
+        "look at the item",
+        "screenshot review",
+        "acceptance list",
+        "visual check",
+        "regression run",
+        "rerun the tests",
+        "test fixture",
+        "clipping",
+        "z-fighting",
+        "item review"
+      ],
+      "tools": [
+        "wb_validate_scripts",
+        "wb_reload",
+        "wb_compile_status",
+        "wb_play",
+        "wb_stop",
+        "wb_state",
+        "game_read"
+      ],
+      "seeAlso": [
+        "import-a-model-from-blender",
+        "add-a-prefab",
+        "live-workbench-session"
+      ],
+      "humanStep": false
+    },
+    {
       "id": "write-an-enforcescript-component",
       "title": "Write an EnforceScript component",
       "goal": "A ScriptComponent that compiles, attaches to an entity, and runs on the lifecycle events you expect.",

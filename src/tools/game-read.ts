@@ -117,6 +117,22 @@ function looksBinary(buf: Buffer): boolean {
   return false;
 }
 
+/**
+ * The one archive path whose file name equals the requested one (case-insensitive), or null when there are none or
+ * several. Recorded 2026-11 (Gear lanes): 18 of 23 game_read failures were a right file name in a wrong folder or
+ * case, each costing the agent a second call to read the single suggestion.
+ */
+export function uniquePath(requested: string, candidates: readonly string[]): string | null {
+  const name = basename(requested).toLowerCase();
+  let hit: string | null = null;
+  for (const c of candidates) {
+    if (basename(c).toLowerCase() !== name) continue;
+    if (hit) return null;
+    hit = c;
+  }
+  return hit;
+}
+
 /** Up to five archive paths sharing the requested file name (case-insensitive). */
 export function suggestPaths(requested: string, candidates: readonly string[]): string[] {
   const name = basename(requested).toLowerCase();
@@ -141,10 +157,13 @@ export function registerGameRead(server: McpServer, config: Config): void {
           .string()
           .describe("Relative path within the game data (e.g., 'Scripts/Game/Character/SCR_CharacterControllerComponent.c')"),
         startLine: z.number().int().min(1).optional().describe("First line to return (1-based)."),
-        maxLines: z.number().int().min(1).max(5000).optional().describe("Number of lines to return from startLine."),
+        maxLines: z.number().int().min(1).optional()
+          .describe("Number of lines to return from startLine (one response holds about 40k characters; page on)."),
         search: z.string().min(1).max(200).optional()
           .describe("Return only lines containing this text (case-insensitive literal), with context lines."),
-        context: z.number().int().min(0).max(20).optional().describe("Context lines around each search hit (default 2)."),
+        // No schema maximum: a context over 20 used to fail validation and cost the agent a retry (2026-11 Gear lanes).
+        context: z.number().int().min(0).optional()
+          .describe("Context lines around each search hit (default 2; values above 20 are treated as 20)."),
       },
     },
     async ({ path: subPath, startLine, maxLines, search, context }) => {
@@ -180,23 +199,24 @@ export function registerGameRead(server: McpServer, config: Config): void {
         }
 
         const pakVfs = PakVirtualFS.get(config.gamePath);
-        if (pakVfs && pakVfs.exists(subPath)) {
+        const readPak = (path: string, note: string) => {
           if (BINARY_EXTENSIONS.has(ext)) {
-            return { content: [{ type: "text", text: `Binary file: ${subPath} (${ext}). Only text resources can be read.` }] };
+            return { content: [{ type: "text" as const, text: `Binary file: ${path} (${ext}). Only text resources can be read.` }] };
           }
-          const fileSize = pakVfs.fileSize(subPath);
+          const fileSize = pakVfs!.fileSize(path);
           if (fileSize < 0) {
-            return { content: [{ type: "text", text: `"${subPath}" is a directory. Use game_browse to list its contents.` }] };
+            return { content: [{ type: "text" as const, text: `"${path}" is a directory. Use game_browse to list its contents.` }] };
           }
           if (fileSize > MAX_FILE_BYTES) {
-            return { content: [{ type: "text", text: `File too large: ${subPath} (${(fileSize / 1024).toFixed(0)} KB).` }] };
+            return { content: [{ type: "text" as const, text: `File too large: ${path} (${(fileSize / 1024).toFixed(0)} KB).` }] };
           }
-          const buf = pakVfs.readFile(subPath);
+          const buf = pakVfs!.readFile(path);
           if (looksBinary(buf)) {
-            return { content: [{ type: "text", text: `Binary file: ${subPath} (${fileSize} bytes). Only text resources can be read.` }] };
+            return { content: [{ type: "text" as const, text: `Binary file: ${path} (${fileSize} bytes). Only text resources can be read.` }] };
           }
-          return { content: [{ type: "text", text: formatGameFile(subPath, `// ${subPath} (from .pak)\n// ${fileSize} bytes`, buf.toString("utf-8"), opts) }] };
-        }
+          return { content: [{ type: "text" as const, text: formatGameFile(path, `// ${path} (from .pak)${note}\n// ${fileSize} bytes`, buf.toString("utf-8"), opts) }] };
+        };
+        if (pakVfs && pakVfs.exists(subPath)) return readPak(subPath, "");
 
         const lines = [`File not found: ${subPath}`];
         if (ext === ".meta") {
@@ -205,6 +225,8 @@ export function registerGameRead(server: McpServer, config: Config): void {
             "asset_search returns it for prefabs, and game_read on a prefab that references the resource shows it."
           );
         } else if (pakVfs) {
+          const only = uniquePath(subPath, pakVfs.allFilePaths());
+          if (only) return readPak(only, `\n// NOTE: "${subPath}" does not exist; this is the only file with that name. Use this path from now on.`);
           const hits = suggestPaths(subPath, pakVfs.allFilePaths());
           if (hits.length) lines.push(`Did you mean:\n${hits.map((h) => `- ${h}`).join("\n")}`);
           else lines.push("No file with that name exists in the game data. Use asset_search or game_browse to locate it.");
