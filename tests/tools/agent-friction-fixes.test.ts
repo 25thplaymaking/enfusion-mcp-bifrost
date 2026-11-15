@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { WorkbenchError } from "../../src/workbench/client.js";
 import { isRefusedReload } from "../../src/tools/wb-reload.js";
 import { withLifecycleLock, sleep } from "../../src/workbench/tool-helpers.js";
-import { formatGameFile, outlineOf, suggestPaths, GAME_READ_MAX_CHARS } from "../../src/tools/game-read.js";
+import { formatGameFile, outlineOf, suggestPaths, uniquePath, GAME_READ_MAX_CHARS } from "../../src/tools/game-read.js";
 import { normalizeWikiTitle, rankWiki, splitSections } from "../../src/index/wiki-sections.js";
 import { pickSections, renderWikiPage, WIKI_READ_DEFAULT_CHARS } from "../../src/tools/wiki-read.js";
 import { allocateKbBudget, fitKbDocument, KB_TOTAL_CHARS } from "../../src/tools/wb-knowledge.js";
@@ -91,6 +91,26 @@ describe("game_read paging", () => {
   it("suggests real paths for a wrong guess", () => {
     const all = ["Scripts/Game/AI/Actions/SCR_AILookAction.c", "Scripts/Game/AI/Other.c"];
     expect(suggestPaths("scripts/Game/AI/Behaviors/SCR_AILookAction.c", all)).toEqual(["Scripts/Game/AI/Actions/SCR_AILookAction.c"]);
+  });
+
+  it("resolves a wrong folder or case to the only file with that name", () => {
+    const all = [
+      "scripts/Game/Components/Damage/SCR_ArmorDamageManagerComponent.c",
+      "Prefabs/Weapons/Core/Rifle_Base.et",
+      "Prefabs/A/Same.et",
+      "Prefabs/B/Same.et",
+    ];
+    expect(uniquePath("Scripts/Game/Damage/SCR_ArmorDamageManagerComponent.c", all))
+      .toBe("scripts/Game/Components/Damage/SCR_ArmorDamageManagerComponent.c");
+    expect(uniquePath("Prefabs/Weapons/Rifles/rifle_base.et", all)).toBe("Prefabs/Weapons/Core/Rifle_Base.et");
+    expect(uniquePath("Prefabs/C/Same.et", all)).toBeNull();          // two candidates: suggest, never guess
+    expect(uniquePath("Prefabs/C/Missing.et", all)).toBeNull();
+  });
+
+  it("treats a search context above 20 as 20 instead of failing", () => {
+    const lines = Array.from({ length: 200 }, (_, i) => (i === 100 ? "NEEDLE" : `line ${i}`)).join("\n");
+    const out = formatGameFile("x.c", "// x.c", lines, { search: "NEEDLE", context: 30 });
+    expect(out.split("\n").filter((l) => /^\s+\d+ {2}/.test(l))).toHaveLength(41);
   });
 });
 

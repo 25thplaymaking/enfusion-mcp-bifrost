@@ -12,7 +12,7 @@ export const moduleNames = [
   "behaviorEditor",
   "localizationEditor",
   "proceduralAnimationEditor",
-  "navmeshEditor",
+  // No navmeshEditor: Workbench 1.9 removed NavmeshGeneratorMain from the script API.
 ] as const;
 
 const editorModuleTool = defineWorkbenchTool({

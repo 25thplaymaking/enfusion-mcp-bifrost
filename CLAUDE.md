@@ -8,7 +8,14 @@
 
 - **Start an authoring task with `wb_playbook`**, not from memory. It returns
   preconditions, the ordered tool calls, the traps that fail *silently*, and the
-  verification. `{"query":"catalogue"}` lists all 19.
+  verification. `{"query":"catalogue"}` lists all 20.
+- **Testing anything in game or in Workbench follows playbook
+  `test-an-item-in-game`** (the owner's five-step item test): one item, several
+  angles/aspects/conditions, what is wrong and reproducible, the easy fix, the fix
+  and a same-angle re-look. Pass counts close nothing; no suites between fixes.
+- **Changing a tool's behaviour?** Replay the recorded failing calls over stdio
+  against the rebuilt `dist/index.js` (an MCP client session), not just vitest:
+  the running MCP in your own session still serves the old build until restarted.
 - **`wb_knowledge`** for engine facts and API detail (48 subject-oriented docs).
 - **The `wb_` prefix does NOT mean "needs Workbench."** `wb_knowledge` and
   `wb_playbook` are `wb_`-prefixed and fully offline.

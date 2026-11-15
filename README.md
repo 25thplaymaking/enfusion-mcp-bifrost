@@ -98,7 +98,7 @@ the ordered tool calls, the traps that fail silently, and how to verify. Use
 
 | Tool | What it does |
 |------|-------------|
-| `wb_playbook` | **START HERE.** Task-oriented playbook: preconditions, ordered tool calls, silent-failure traps, verification. `query="catalogue"` lists all 19 |
+| `wb_playbook` | **START HERE.** Task-oriented playbook: preconditions, ordered tool calls, silent-failure traps, verification. `query="catalogue"` lists all 20 |
 | `wb_knowledge` | Subject-oriented KB: engine concepts and API detail across 48 pattern docs |
 
 #### Reference / research

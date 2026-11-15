@@ -5,7 +5,7 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Start with the playbooks
 
 Before planning any Enfusion authoring work, call `wb_playbook` with the task
-in your own words (`{"query":"catalogue"}` lists all 19). Each playbook carries
+in your own words (`{"query":"catalogue"}` lists all 20). Each playbook carries
 preconditions, the ordered tool calls, the traps that fail *silently*, and a
 verification checklist. `wb_knowledge` is the subject-oriented complement.
 

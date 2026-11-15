@@ -109,6 +109,8 @@ class EMCP_WB_EditorModule : NetApiHandler
 		return new EMCP_WB_EditorModuleRequest();
 	}
 
+	// No navmesh module: Workbench 1.9 removed NavmeshGeneratorMain from the script API, and naming it
+	// fails the whole WorkbenchGame module (the handlers and two vanilla plugins with it).
 	protected bool OpenEditor(string moduleName)
 	{
 		if (moduleName == "resourceManager") return Workbench.OpenModule(ResourceManager);
@@ -120,7 +122,6 @@ class EMCP_WB_EditorModule : NetApiHandler
 		if (moduleName == "behaviorEditor") return Workbench.OpenModule(BehaviorEditor);
 		if (moduleName == "localizationEditor") return Workbench.OpenModule(LocalizationEditor);
 		if (moduleName == "proceduralAnimationEditor") return Workbench.OpenModule(ProcAnimEditor);
-		if (moduleName == "navmeshEditor") return Workbench.OpenModule(NavmeshGeneratorMain);
 		return false;
 	}
 
@@ -135,7 +136,6 @@ class EMCP_WB_EditorModule : NetApiHandler
 		if (moduleName == "behaviorEditor") return Workbench.GetModule(BehaviorEditor);
 		if (moduleName == "localizationEditor") return Workbench.GetModule(LocalizationEditor);
 		if (moduleName == "proceduralAnimationEditor") return Workbench.GetModule(ProcAnimEditor);
-		if (moduleName == "navmeshEditor") return Workbench.GetModule(NavmeshGeneratorMain);
 		return null;
 	}
 
@@ -150,7 +150,6 @@ class EMCP_WB_EditorModule : NetApiHandler
 		if (moduleName == "behaviorEditor") return Workbench.CloseModule(BehaviorEditor);
 		if (moduleName == "localizationEditor") return Workbench.CloseModule(LocalizationEditor);
 		if (moduleName == "proceduralAnimationEditor") return Workbench.CloseModule(ProcAnimEditor);
-		if (moduleName == "navmeshEditor") return Workbench.CloseModule(NavmeshGeneratorMain);
 		return false;
 	}
 
@@ -160,7 +159,7 @@ class EMCP_WB_EditorModule : NetApiHandler
 			moduleName == "worldEditor" || moduleName == "audioEditor" ||
 			moduleName == "animationEditor" || moduleName == "particleEditor" ||
 			moduleName == "behaviorEditor" || moduleName == "localizationEditor" ||
-			moduleName == "proceduralAnimationEditor" || moduleName == "navmeshEditor";
+			moduleName == "proceduralAnimationEditor";
 	}
 
 	protected void SetOperationResult(EMCP_WB_EditorModuleResponse resp, bool result, string successMessage, string errorMessage)
