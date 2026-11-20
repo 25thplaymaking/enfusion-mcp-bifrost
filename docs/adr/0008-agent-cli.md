@@ -65,5 +65,7 @@ PRIMARY RISKS
   testable from a shell at once without restarting any MCP client.
 - Cold start is about 0.35 s (registry load), cheap enough to spawn per call.
 - Global options `--json`, `--args`, `--args-file` and `--help` are reserved.
-  No tool has a parameter of those names today; the generator would need a
-  guard if one is ever added.
+  No tool has a parameter of those names, and `gen-agent-index.mjs` refuses
+  to generate the index if one is added (`RESERVED_FLAGS` in src/cli-args.ts).
+- Keys passed with `--args` / `--args-file` must be exact schema names; an
+  unknown key is a usage error, not silently dropped as the MCP SDK would.

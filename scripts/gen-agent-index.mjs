@@ -34,6 +34,7 @@ const SKILL_OUT = join(REPO, "skills", "enfusion-cli", "SKILL.md");
 
 // One definition of offline-vs-live, shared with the CLI (src/tool-registry.ts).
 const { isOfflineTool } = await import(pathToFileURL(join(REPO, "dist", "tool-registry.js")).href);
+const { RESERVED_FLAGS, reservedFlagCollisions } = await import(pathToFileURL(join(REPO, "dist", "cli-args.js")).href);
 
 function listTools() {
   return new Promise((resolveTools, reject) => {
@@ -116,6 +117,12 @@ async function main() {
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+  // enfusion-cli takes these as global options, so a tool param with the same
+  // name could never be passed from the CLI (ADR-0008).
+  const collisions = index.flatMap((t) => reservedFlagCollisions(t.inputKeys).map((k) => `${t.name}.${k}`));
+  if (collisions.length) {
+    throw new Error(`tool params collide with enfusion-cli global options (${RESERVED_FLAGS.join(", ")}): ${collisions.join(", ")}. Rename the param.`);
+  }
   const offlineCount = index.filter((t) => t.offline).length;
   const liveCount = index.length - offlineCount;
 

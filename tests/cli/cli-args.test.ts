@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import {
-  describeParams, positionalParams, parseToolArgs, validateInput, tokenize, nearest, UsageError,
+  describeParams, positionalParams, parseToolArgs, validateInput, tokenize, nearest, reservedFlagCollisions, UsageError,
 } from "../../src/cli-args.js";
 
 const shape = {
@@ -67,6 +67,26 @@ describe("parseToolArgs", () => {
 
   it("merges a base object (from --args) under the flags", () => {
     expect(parseToolArgs(["--max-files", "4"], params, { className: "A", max_files: 1 })).toEqual({ className: "A", max_files: 4 });
+  });
+
+  it("treats a single array value as JSON only when it is a JSON array", () => {
+    const sig = "[RplRpc(RplChannel.Reliable, RplRcver.Server)] void RpcAsk_Fire()";
+    expect(parse(["A", "modded", "--methods", sig]).methods).toEqual([sig]);
+    expect(parse(["A", "modded", "--methods", '["a"]']).methods).toEqual(["a"]);
+  });
+
+  it("rejects unknown keys in the --args base, with a suggestion", () => {
+    expect(() => parseToolArgs([], params, { className: "A", maxFile: 1 })).toThrow(/Unknown key "maxFile" in --args\. Did you mean "max_files"\?/);
+  });
+
+  it("keeps a nullable-but-not-optional param required", () => {
+    const p = describeParams({ target: z.string().nullable(), note: z.string().nullable().optional() });
+    expect(p.map((x) => x.required)).toEqual([true, false]);
+    expect(positionalParams(p)).toEqual(["target"]);
+  });
+
+  it("flags tool params that collide with the CLI's global options", () => {
+    expect(reservedFlagCollisions(["query", "json", "args_file", "Help", "projectPath"])).toEqual(["json", "args_file", "Help"]);
   });
 
   it("fails loudly, with the fix in the message", () => {

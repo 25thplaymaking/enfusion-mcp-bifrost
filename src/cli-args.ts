@@ -24,6 +24,18 @@ export interface ParamInfo {
 
 export class UsageError extends Error {}
 
+/**
+ * Global options the CLI takes before tool flags. A tool param with one of these
+ * names (ignoring case, "-" and "_") could never be passed, so
+ * scripts/gen-agent-index.mjs refuses to generate the index if one appears.
+ */
+export const RESERVED_FLAGS = ["json", "args", "args-file", "help", "version"];
+
+export function reservedFlagCollisions(paramNames: string[]): string[] {
+  const reserved = new Set(RESERVED_FLAGS.map((f) => f.toLowerCase().replace(/[-_]/g, "")));
+  return paramNames.filter((n) => reserved.has(n.toLowerCase().replace(/[-_]/g, "")));
+}
+
 /** Strip wrappers until the base type, collecting description, optionality and default. */
 function unwrap(schema: ZodTypeAny): { base: ZodTypeAny; optional: boolean; def?: unknown; hasDefault: boolean; description: string } {
   let s: ZodTypeAny = schema;
@@ -33,7 +45,9 @@ function unwrap(schema: ZodTypeAny): { base: ZodTypeAny; optional: boolean; def?
   let description = schema.description ?? "";
   for (let i = 0; i < 20; i++) {
     const d = s._def as { typeName?: string; innerType?: ZodTypeAny; schema?: ZodTypeAny; type?: ZodTypeAny; getter?: () => ZodTypeAny; defaultValue?: () => unknown };
-    if (d.typeName === "ZodOptional" || d.typeName === "ZodNullable") { optional = true; s = d.innerType!; }
+    // Nullable alone still rejects a missing value, so only Optional makes a param optional.
+    if (d.typeName === "ZodOptional") { optional = true; s = d.innerType!; }
+    else if (d.typeName === "ZodNullable") s = d.innerType!;
     else if (d.typeName === "ZodDefault") { hasDefault = true; def = d.defaultValue!(); s = d.innerType!; }
     else if (d.typeName === "ZodEffects") s = d.schema!;
     else if (d.typeName === "ZodBranded") s = d.type!;
@@ -156,7 +170,14 @@ function coerceScalar(kind: ParamKind, raw: string, flag: string, values?: strin
 
 function coerce(p: ParamInfo, raws: string[], flag: string): unknown {
   if (p.kind === "array") {
-    if (raws.length === 1 && raws[0].trim().startsWith("[")) return parseJson(raws[0], flag, "an array");
+    // One value that is a JSON array is the whole array. Anything else (even text
+    // that starts with "[", like an attributed Enforce signature) is one element.
+    if (raws.length === 1 && raws[0].trim().startsWith("[")) {
+      try {
+        const v = JSON.parse(raws[0]);
+        if (Array.isArray(v)) return v;
+      } catch { /* not JSON: fall through to a single element */ }
+    }
     const item = p.item ?? "string";
     return raws.map((r) => (item === "object" || item === "json") ? parseJson(r, flag, "an object per item") : coerceScalar(item, r, flag, p.values));
   }
@@ -174,6 +195,14 @@ const BOOL_WORDS = new Set(["true", "false", "1", "0", "yes", "no", "on", "off"]
  */
 export function parseToolArgs(tokens: string[], params: ParamInfo[], base: Record<string, unknown> = {}): Record<string, unknown> {
   const byNorm = new Map(params.map((p) => [norm(p.name), p]));
+  // Keys from --args / --args-file must be exact schema names; the schema would
+  // otherwise strip a misspelled key without a word.
+  const names = params.map((p) => p.name);
+  for (const key of Object.keys(base)) {
+    if (names.includes(key)) continue;
+    const near = nearest(key, names);
+    throw new UsageError(`Unknown key "${key}" in --args.${near.length ? ` Did you mean "${near[0]}"?` : ""} Valid keys: ${names.join(", ") || "(none)"}`);
+  }
   const collected = new Map<string, string[]>();
   const bools = new Map<string, boolean>();
   const bare: string[] = [];

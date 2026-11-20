@@ -87,6 +87,20 @@ describe("enfusion-cli (built)", () => {
     expect(r.code).toBe(2);
   });
 
+  it("gives the help hint even when --args comes before the tool name", () => {
+    const r = run(["--args", '{"query":"x","maxFile":1}', "wb_knowledge"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toMatch(/Unknown key "maxFile".*Run `enfusion-cli help wb_knowledge`/s);
+  });
+
+  it("refuses --args-file - inside a REPL script instead of eating the script", () => {
+    const r = run(["repl", "--json"], "wb_knowledge --args-file -\nwb_playbook catalogue\n");
+    const lines = r.out.trim().split("\n").map((l) => JSON.parse(l));
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatchObject({ ok: false, error: "usage" });
+    expect(lines[1]).toMatchObject({ ok: true, tool: "wb_playbook" });
+  });
+
   it("info reports the resolved configuration", () => {
     const r = json(["info"]);
     expect(r.code).toBe(0);

@@ -204,7 +204,11 @@ function splitGlobals(argv: string[]) {
 }
 
 /** Run one command line (argv words). Never throws; never exits. */
-export async function execute(argv: string[], signal: AbortSignal): Promise<{ outcome: Outcome; json: boolean }> {
+export async function execute(
+  argv: string[],
+  signal: AbortSignal,
+  opts: { stdinIsScript?: boolean } = {},
+): Promise<{ outcome: Outcome; json: boolean }> {
   let json = argv.includes("--json");
   try {
     const { g, rest } = splitGlobals(argv);
@@ -230,6 +234,9 @@ export async function execute(argv: string[], signal: AbortSignal): Promise<{ ou
     }
     const t = findTool(cmd);
     if (!t) return { json, outcome: unknownTool(cmd) };
+    if (g.argsFile === "-" && opts.stdinIsScript) {
+      throw new UsageError("--args-file - cannot read stdin inside a REPL script (stdin is the script). Use --args '<json>' or a file path.");
+    }
     const base = { ...(g.argsFile ? readArgsFile(g.argsFile) : {}), ...(g.args ? parseArgsJson(g.args, "--args") : {}) };
     return { json, outcome: await runTool(t, tail, base, signal) };
   } catch (e) {
@@ -237,8 +244,11 @@ export async function execute(argv: string[], signal: AbortSignal): Promise<{ ou
     if (!(e instanceof UsageError)) {
       return { json, outcome: { code: 1, text: `Error: ${msg}`, data: { ok: false, error: "exception", message: msg } } };
     }
-    const cmd = argv.find((a) => !a.startsWith("-"));
-    const hint = cmd && findTool(cmd) ? ` Run \`enfusion-cli help ${findTool(cmd)!.name}\`.` : "";
+    // The tool is the first word left after global options (an --args value is not a tool name).
+    let cmd: string | undefined;
+    try { cmd = splitGlobals(argv).rest[0]; } catch { cmd = undefined; }
+    const t = cmd ? findTool(cmd) : undefined;
+    const hint = t ? ` Run \`enfusion-cli help ${t.name}\`.` : "";
     const sep = /[.?!]$/.test(msg) ? "" : ".";
     return { json, outcome: { code: 2, text: `Usage error: ${msg}${hint ? sep + hint : ""}`, data: { ok: false, error: "usage", message: msg } } };
   }
@@ -267,7 +277,7 @@ async function repl(jsonDefault: boolean, signal: AbortSignal): Promise<number> 
       try { words = tokenize(trimmed); } catch (e) { words = []; process.stderr.write(`Usage error: ${(e as Error).message}\n`); worst = Math.max(worst, 2); }
       if (words.length) {
         if (jsonDefault && !words.includes("--json")) words.push("--json");
-        const { outcome, json } = await execute(words, signal);
+        const { outcome, json } = await execute(words, signal, { stdinIsScript: !interactive });
         const { out, err } = render(outcome, json, !interactive);
         process.stdout.write(out);
         process.stderr.write(err);
@@ -280,25 +290,28 @@ async function repl(jsonDefault: boolean, signal: AbortSignal): Promise<number> 
   return worst;
 }
 
+/** Exit only once both streams have drained: Windows terminal writes are asynchronous. */
+function exitAfterFlush(code: number, out = "", err = ""): void {
+  let pending = 2;
+  const done = () => { if (--pending === 0) process.exit(code); };
+  process.stderr.write(err, done);
+  process.stdout.write(out, done);
+}
+
 async function main(): Promise<void> {
-  const ac = new AbortController();
-  process.on("SIGINT", () => { ac.abort(); process.exit(130); });
+  // Ctrl+C keeps Node's default (exit 130). Handlers take a signal, but nothing
+  // here cancels a call mid-flight, so it is a plain never-aborted one.
+  const signal = new AbortController().signal;
   const argv = process.argv.slice(2);
   const words = argv.filter((a) => a !== "--json");
-  let code: number;
   if (words[0] === "repl" || (words.length === 0 && process.stdin.isTTY)) {
-    code = await repl(argv.includes("--json"), ac.signal);
-  } else {
-    const { outcome, json } = await execute(argv, ac.signal);
-    const { out, err } = render(outcome, json);
-    if (err) process.stderr.write(err);
-    code = outcome.code;
-    // Exit only after stdout drains, or a large answer piped to a file is cut short.
-    // Exiting explicitly also drops any Workbench socket left open by a live tool.
-    process.stdout.write(out, () => process.exit(code));
+    exitAfterFlush(await repl(argv.includes("--json"), signal));
     return;
   }
-  process.stdout.write("", () => process.exit(code));
+  const { outcome, json } = await execute(argv, signal);
+  const { out, err } = render(outcome, json);
+  // Exiting explicitly also drops any Workbench socket left open by a live tool.
+  exitAfterFlush(outcome.code, out, err);
 }
 
 await main();
