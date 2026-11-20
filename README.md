@@ -72,6 +72,29 @@ The supported workflow is:
 
 For complex mods, a `MODPLAN.md` is written to the project root tracking the full vision, completed phases, and what's next — so any future session can pick up right where the last one left off via `/modify-mod`.
 
+### From a shell: `enfusion-cli`
+
+Every tool is also a shell command, for agents without an MCP client (local
+models, scripts, CI) and for testing a rebuilt tool without restarting a client.
+It calls the same handlers as the MCP server, in process, and follows the
+[CLI-Anything](https://github.com/HKUDS/CLI-Anything) harness rules: `--json` on
+every command, `list` / `help` / `info` introspection, errors that say how to fix
+the call, and a REPL. See [ADR-0008](docs/adr/0008-agent-cli.md) and the
+generated agent skill in `skills/enfusion-cli/SKILL.md`.
+
+```bash
+node dist/cli.js list --offline                    # or `enfusion-cli` after npm link
+node dist/cli.js help script_create
+node dist/cli.js wb_playbook "add a weapon"
+node dist/cli.js script_create TAG_MyComp component --methods "void OnPostInit(IEntity owner)" --json
+printf '%s
+' 'wb_projects list' 'wb_state' | node dist/cli.js repl --json
+```
+
+Configuration is the same `ENFUSION_*` environment variables as the server;
+`enfusion-cli info` shows the resolved paths. Exit codes: 0 ok, 1 tool error,
+2 usage error.
+
 ## Tools
 
 ### Offline Tools
