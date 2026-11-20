@@ -6,7 +6,8 @@
   "description": "Bifrost's focus-safe MCP suite for Arma Reforger Workbench and Enfusion authoring",
   "bin": {
     "enfusion-mcp": "./dist/index.js",
-    "enfusion-mcp-bifrost": "./dist/index.js"
+    "enfusion-mcp-bifrost": "./dist/index.js",
+    "enfusion-cli": "./dist/cli.js"
   },
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
@@ -26,6 +27,7 @@
     "api:repair-names": "tsx scripts/repair-method-names.ts",
     "api:repair-inheritance": "tsx scripts/repair-script-inheritance.ts",
     "smoke": "node scripts/smoke-mcp.mjs",
+    "cli": "node dist/cli.js",
     "validate:live": "node scripts/validate-live.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -55,6 +57,7 @@
     "dist",
     "data",
     "mod",
+    "skills",
     "docs",
     "README.md",
     "LICENSE"

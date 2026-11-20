@@ -5,7 +5,8 @@
 
 **63 tools: 26 offline, 37 live.**
 
-Machine-readable equivalent: `dist/tools.json`.
+Machine-readable equivalent: `dist/tools.json`. From a shell, every tool is
+also `node dist/cli.js <tool>` (`enfusion-cli`); see `skills/enfusion-cli/SKILL.md`.
 
 ## How to route a task
 

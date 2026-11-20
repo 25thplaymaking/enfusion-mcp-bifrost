@@ -16,6 +16,7 @@
 - **Changing a tool's behaviour?** Replay the recorded failing calls over stdio
   against the rebuilt `dist/index.js` (an MCP client session), not just vitest:
   the running MCP in your own session still serves the old build until restarted.
+  `node dist/cli.js <tool> ...` always runs the build on disk (ADR-0008).
 - **`wb_knowledge`** for engine facts and API detail (48 subject-oriented docs).
 - **The `wb_` prefix does NOT mean "needs Workbench."** `wb_knowledge` and
   `wb_playbook` are `wb_`-prefixed and fully offline.
