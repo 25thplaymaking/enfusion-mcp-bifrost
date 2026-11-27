@@ -63,7 +63,7 @@ character (and a held item), and keep the picture as evidence.
 
    ```
    wb_anim_preview {"workspace":"anims/workspaces/<name>.aw","allowForeground":true}
-   wb_anim_preview {"clip":"<row name>","frame":12,"view":"Right","zoom":3}
+   wb_anim_preview {"clip":"<row name>","frame":12,"view":"Right","zoom":1}
    ```
 
    `clip` double-clicks the row's cell in the Animation Sets tree (the clip
@@ -79,9 +79,11 @@ character (and a held item), and keep the picture as evidence.
   nodes. The preview tool never saves.
 - The toolbar Play button runs the *graph*; its timeline counts session frames,
   not clip frames. Use `clip` for clip frames.
-- Posted mouse drags do not orbit or pan the preview camera (the engine reads
-  the real mouse). Use `view` presets, `cube` clicks on the navigation cube and
-  `zoom` with `zoomAt` toward a point.
+- Posted mouse drags do not orbit or pan the preview camera, and the wheel
+  zooms toward the view centre (the engine reads the real mouse). Use `view`
+  presets, `cube` clicks on the navigation cube and `zoom`. For a bigger
+  preview, hide the docks under it (`wb_editor_module` executeAction
+  `Window,Graph`, `Window,Channel Curves`, `Window,Log Console`).
 - A floating item in the preview means the clip does not carry `RightHandProp`
   at the hand (vanilla weapon clips place the weapon through IK in game). Clips
   that pose the hand prop show the item in the hand.

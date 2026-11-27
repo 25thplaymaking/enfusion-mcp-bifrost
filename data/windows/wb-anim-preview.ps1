@@ -8,7 +8,9 @@
 # Steps run in order: clip -> pause/play -> frame -> view -> zoom -> cube -> capture. One JSON object is written to
 # stdout. Exit code 0 on success, 2 when the editor or an element is missing, 3 on a failed readback.
 # Known limit: posted mouse drags do not orbit or pan this viewport (the engine camera reads the real mouse), so
-# camera angles come from the View menu presets, the navigation cube and wheel zoom toward a point.
+# camera angles come from the View menu presets, the navigation cube and wheel zoom (toward the view centre).
+# For a bigger preview, hide the docks under it first: wb_editor_module executeAction animationEditor "Window,Graph"
+# (and "Window,Channel Curves", "Window,Log Console"); the viewport is found under the View/Shading row either way.
 param(
 	[int]$Port = 5775,
 	[string]$Clip = '',          # animation row name in the Animation Sets tree (exact, case-sensitive)
@@ -17,7 +19,6 @@ param(
 	[string]$Playback = '',      # play | pause
 	[string]$View = '',          # Perspective | Top | Bottom | Front | Back | Right | Left
 	[int]$Zoom = 0,              # mouse-wheel ticks on the viewport, + = closer
-	[int]$ZoomAtX = -1, [int]$ZoomAtY = -1,  # viewport pixel to zoom toward (default: centre)
 	[int]$CubeX = -1, [int]$CubeY = -1,      # viewport pixel on the navigation cube to click (snaps the view)
 	[string]$Out = '',           # PNG path to write
 	[ValidateSet('viewport', 'editor')] [string]$Target = 'viewport'
@@ -91,10 +92,17 @@ function Timeline {
 function Val($e) { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value }
 function Playing($tl) { $tl.btn[2].GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -eq 'On' }
 function Viewport {
-	$tr = Rect $ae
-	$cand = foreach ($k in [EmcpWin]::Kids($ae)) { $r = Rect $k; $w = $r.R - $r.L; $h = $r.B - $r.T
-		if ($r.L -gt ($tr.L + ($tr.R - $tr.L) * 0.3) -and $r.T -lt ($tr.T + ($tr.B - $tr.T) * 0.5) -and $w -gt $h -and $h -gt 150) { [pscustomobject]@{ h = $k; w = $w; hh = $h } } }
-	($cand | Sort-Object hh | Select-Object -First 1).h }
+	# the 3D view is the largest native child whose top edge sits right under the preview's View/Shading row
+	$vb = $root.FindFirst($Scope::Descendants, (New-Object System.Windows.Automation.AndCondition(
+		(New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, 'View')),
+		(New-Object System.Windows.Automation.PropertyCondition($A::AutomationIdProperty, 'Arma4WorkbenchApp.AnimEditor.Preview.QWidget.splitter.previewWidget.QToolBar.QToolButton')))))
+	if (-not $vb) { return $null }
+	$row = $vb.Current.BoundingRectangle
+	$top = $row.Y + $row.Height
+	$cand = foreach ($k in [EmcpWin]::Kids($ae)) { $r = Rect $k
+		if ($r.T -ge ($top - 2) -and $r.T -le ($top + 12) -and $r.L -le ($row.X + 4) -and ($r.B - $r.T) -gt 100) {
+			[pscustomobject]@{ h = $k; a = [long]($r.R - $r.L) * ($r.B - $r.T) } } }
+	($cand | Sort-Object a -Descending | Select-Object -First 1).h }
 
 # --- clip: preview one animation alone (double-click its cell in the Animation Sets tree) --------------------
 if ($Clip) {
@@ -165,13 +173,11 @@ if ($View) {
 	Step "view $View"
 }
 if ($Zoom -ne 0) {
-	# the wheel zooms toward the point under the (posted) cursor, so zooming at a point also frames it
-	$sr = Rect $vp; $zx = $center.x; $zy = $center.y
-	if ($ZoomAtX -ge 0) { $zx = $ZoomAtX }; if ($ZoomAtY -ge 0) { $zy = $ZoomAtY }
+	# the engine zooms toward the view centre (it reads the real cursor, not the posted one)
+	$sr = Rect $vp
 	for ($i = 0; $i -lt [Math]::Abs($Zoom); $i++) {
-		[void][EmcpWin]::PostMessage($vp, 0x0200, [IntPtr]0, (LParam $zx $zy))
-		[void][EmcpWin]::PostMessage($vp, 0x020A, [IntPtr](([Math]::Sign($Zoom) * 120) -shl 16), (LParam ($sr.L + $zx) ($sr.T + $zy))); Start-Sleep -Milliseconds 60 }
-	Step "zoom $Zoom at $zx,$zy"
+		[void][EmcpWin]::PostMessage($vp, 0x020A, [IntPtr](([Math]::Sign($Zoom) * 120) -shl 16), (LParam ($sr.L + $center.x) ($sr.T + $center.y))); Start-Sleep -Milliseconds 60 }
+	Step "zoom $Zoom"
 }
 if ($CubeX -ge 0 -and $CubeY -ge 0) {
 	# a click on the navigation cube's face or edge snaps the camera to that side

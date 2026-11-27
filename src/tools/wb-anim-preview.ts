@@ -32,7 +32,6 @@ export interface PreviewArgs {
   playback?: "play" | "pause";
   view?: (typeof VIEWS)[number];
   zoom?: number;
-  zoomAt?: [number, number];
   cube?: [number, number];
   out?: string;
   target?: "viewport" | "editor";
@@ -47,7 +46,6 @@ export function previewScriptArgs(script: string, port: number, a: PreviewArgs):
   if (a.playback) args.push("-Playback", a.playback);
   if (a.view) args.push("-View", a.view);
   if (a.zoom) args.push("-Zoom", String(a.zoom));
-  if (a.zoomAt) args.push("-ZoomAtX", String(a.zoomAt[0]), "-ZoomAtY", String(a.zoomAt[1]));
   if (a.cube) args.push("-CubeX", String(a.cube[0]), "-CubeY", String(a.cube[1]));
   if (a.out) args.push("-Out", a.out, "-Target", a.target ?? "viewport");
   return args;
@@ -67,11 +65,11 @@ export function registerWbAnimPreview(server: McpServer, config: Config, client:
       description:
         "Show an animation clip in the Workbench Animation Editor on the workspace's preview character and capture it. " +
         "Optionally opens a workspace (.aw, needs allowForeground), previews one animation row alone (its cell in the " +
-        "Animation Sets tree), pauses and sets the exact frame (read back), switches the View preset, zooms toward a " +
-        "viewport point, clicks the navigation cube, and writes a PNG of the viewport or the whole editor (returned as an " +
+        "Animation Sets tree), pauses and sets the exact frame (read back), switches the View preset, zooms (toward " +
+        "the view centre), clicks the navigation cube, and writes a PNG of the viewport or the whole editor (returned as an " +
         "image). Windows only. Everything after opening runs without focus: UI Automation plus posted messages and " +
         "PrintWindow, in one hidden, time-limited PowerShell process. Posted drags cannot orbit this camera; use views, the " +
-        "cube and zoomAt. Never saves the workspace or a graph (saving an AGF from the editor wipes its nodes).",
+        "cube and zoom; hide the Graph/Channel Curves/Log Console docks (Window menu) for a bigger preview. Never saves the workspace or a graph (saving an AGF from the editor wipes its nodes).",
       inputSchema: {
         workspace: z.string().optional().describe("Project-relative .aw to open first, e.g. 'anims/workspaces/my.aw'."),
         clip: z.string().optional().describe("Animation row name in the Animation Sets tree to preview alone (exact)."),
@@ -80,7 +78,6 @@ export function registerWbAnimPreview(server: McpServer, config: Config, client:
         playback: z.enum(["play", "pause"]).optional(),
         view: z.enum(VIEWS).optional().describe("Preview View menu preset."),
         zoom: z.number().int().min(-30).max(30).optional().describe("Wheel ticks, + = closer."),
-        zoomAt: z.tuple([z.number().int().min(0), z.number().int().min(0)]).optional().describe("Viewport pixel [x,y] to zoom toward (default centre)."),
         cube: z.tuple([z.number().int().min(0), z.number().int().min(0)]).optional().describe("Viewport pixel [x,y] on the navigation cube to click."),
         out: z.string().optional().describe("PNG path to write. Default: a timestamped file in the OS temp folder."),
         capture: z.boolean().default(true).describe("Write and return a PNG."),

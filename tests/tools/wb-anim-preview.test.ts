@@ -7,10 +7,10 @@ const REPO = join(__dirname, "..", "..");
 
 describe("wb_anim_preview", () => {
   it("passes only the steps that were asked for, in the script's parameter names", () => {
-    const args = previewScriptArgs("s.ps1", 5775, { clip: "P1_Hold", frame: 12, view: "Right", zoom: -2, zoomAt: [10, 20], out: "x.png", target: "editor" });
+    const args = previewScriptArgs("s.ps1", 5775, { clip: "P1_Hold", frame: 12, view: "Right", zoom: -2, out: "x.png", target: "editor" });
     expect(args.slice(0, 9)).toEqual(["-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", "s.ps1", "-Port", "5775"]);
     const rest = args.slice(9).join(" ");
-    expect(rest).toBe("-Clip P1_Hold -Frame 12 -View Right -Zoom -2 -ZoomAtX 10 -ZoomAtY 20 -Out x.png -Target editor");
+    expect(rest).toBe("-Clip P1_Hold -Frame 12 -View Right -Zoom -2 -Out x.png -Target editor");
   });
 
   it("keeps frame 0 and omits a zero zoom", () => {
