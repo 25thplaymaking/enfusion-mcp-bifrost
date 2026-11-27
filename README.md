@@ -108,7 +108,7 @@ Work without Workbench running — API search, mod scaffolding, code generation,
 | `wiki_search` | Search 271 current Enfusion/BI Wiki and API pages (264 official Wiki pages with revision metadata) |
 | `wiki_read` | Read the full content of a wiki page by title — no truncation, includes code examples |
 
-### Tools (63 total: 26 offline, 37 live)
+### Tools (65 total: 26 offline, 39 live)
 
 **Start every authoring task with `wb_playbook`.** It returns the preconditions,
 the ordered tool calls, the traps that fail silently, and how to verify. Use
@@ -189,6 +189,8 @@ the ordered tool calls, the traps that fail silently, and how to verify. Use
 | `wb_undo_redo` | Undo or redo the last action in the World Editor |
 | `wb_execute_action` | Execute a Workbench menu action by its menu path |
 | `wb_editor_module` | Shared control for every Reforger Workbench editor |
+| `wb_anim_preview` | Show an animation clip in the Animation Editor on its preview character: preview one row, set the exact frame, View preset, zoom, capture a PNG (no focus taken) |
+| `wb_txa_compile` | Build a .txa into its .anm with Workbench (register or file-watcher rebuild) and wait for the result |
 | `wb_entity_create` | Create a new entity in the World Editor from a prefab |
 | `wb_entity_list` | List entities in the current world |
 | `wb_entity_inspect` | Get detailed information about a specific entity, including its components, properties, position, and children |

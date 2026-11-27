@@ -1,7 +1,7 @@
 ---
 name: enfusion-cli
 description: >-
-  Use when working on Arma Reforger / Enfusion mods from a shell: the 63
+  Use when working on Arma Reforger / Enfusion mods from a shell: the 65
   enfusion-mcp tools as `enfusion-cli <tool>` commands (playbooks, engine
   knowledge, API and wiki search, game data, file authoring, live Workbench).
   Works without an MCP client and always runs the build on disk.
@@ -36,7 +36,7 @@ introspection, loud errors that say how to fix the call, a REPL.
 ## Call syntax
 
 ```bash
-enfusion-cli list [--offline | --live]          # 26 offline, 37 live
+enfusion-cli list [--offline | --live]          # 26 offline, 39 live
 enfusion-cli help <tool>                        # params, types, defaults, which bare values it takes
 enfusion-cli <tool> [bare value]... [--param value]...
 enfusion-cli <tool> --args '{"param": "value"}' # whole input as JSON (flags override)
@@ -73,4 +73,4 @@ printf '%s\n' 'wb_projects list' 'wb_state' 'wb_compile_status' | enfusion-cli r
 
 Offline (26): `animation_graph`, `api_search`, `asset_search`, `building_setup`, `component_search`, `config_create`, `editor_asset`, `game_browse`, `game_duplicate`, `game_read`, `gamemode_scaffold`, `layout_create`, `layout_recipe`, `menu_create`, `mod`, `prefab`, `project`, `scenario_create`, `scenario_create_conflict`, `script_create`, `server_config`, `wb_knowledge`, `wb_playbook`, `wiki_read`, `wiki_search`, `workshop_info`
 
-Live (37): `wb_batch`, `wb_bridge`, `wb_capabilities`, `wb_cleanup`, `wb_clipboard`, `wb_compile_status`, `wb_component`, `wb_connect`, `wb_debug`, `wb_diagnose`, `wb_docs`, `wb_editor_module`, `wb_entity_create`, `wb_entity_delete`, `wb_entity_duplicate`, `wb_entity_inspect`, `wb_entity_list`, `wb_entity_modify`, `wb_entity_select`, `wb_execute_action`, `wb_launch`, `wb_layers`, `wb_localization`, `wb_open_resource`, `wb_play`, `wb_prefabs`, `wb_projects`, `wb_reload`, `wb_resources`, `wb_save`, `wb_script_editor`, `wb_state`, `wb_stop`, `wb_terrain`, `wb_undo_redo`, `wb_validate`, `wb_validate_scripts`
+Live (39): `wb_anim_preview`, `wb_batch`, `wb_bridge`, `wb_capabilities`, `wb_cleanup`, `wb_clipboard`, `wb_compile_status`, `wb_component`, `wb_connect`, `wb_debug`, `wb_diagnose`, `wb_docs`, `wb_editor_module`, `wb_entity_create`, `wb_entity_delete`, `wb_entity_duplicate`, `wb_entity_inspect`, `wb_entity_list`, `wb_entity_modify`, `wb_entity_select`, `wb_execute_action`, `wb_launch`, `wb_layers`, `wb_localization`, `wb_open_resource`, `wb_play`, `wb_prefabs`, `wb_projects`, `wb_reload`, `wb_resources`, `wb_save`, `wb_script_editor`, `wb_state`, `wb_stop`, `wb_terrain`, `wb_txa_compile`, `wb_undo_redo`, `wb_validate`, `wb_validate_scripts`
