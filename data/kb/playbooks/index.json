@@ -505,6 +505,36 @@
       "humanStep": true
     },
     {
+      "id": "preview-an-animation-clip",
+      "title": "Preview an animation clip in the Animation Editor",
+      "goal": "A .txa built into .anm and shown at an exact frame on Bohemia's preview character in the Animation Editor, captured as a PNG, without taking the user's focus.",
+      "triggers": [
+        "preview a clip",
+        "preview an animation",
+        "show the animation in the animation editor",
+        "animation editor capture",
+        "step to a frame",
+        "compile txa",
+        "build txa",
+        "txa to anm",
+        "check a pose in workbench",
+        "anim preview"
+      ],
+      "tools": [
+        "wb_txa_compile",
+        "wb_anim_preview",
+        "wb_resources",
+        "wb_editor_module",
+        "project"
+      ],
+      "seeAlso": [
+        "author-an-animation-graph",
+        "import-a-model-from-blender",
+        "test-an-item-in-game"
+      ],
+      "humanStep": false
+    },
+    {
       "id": "react-to-damage",
       "title": "React to damage (hit zones, damage managers)",
       "goal": "Damage that lands on the right hit zone, calls the right callbacks, and uses APIs that exist on the component you actually have.",

@@ -2,7 +2,7 @@
 
 ## Orientation (read this first)
 
-**63 tools: 26 offline, 37 live.** `AGENT_TOOLS.md` is the generated index and
+**65 tools: 26 offline, 39 live.** `AGENT_TOOLS.md` is the generated index and
 `dist/tools.json` the machine-readable form — both derived from the server's own
 `tools/list`, so neither can drift from what is registered.
 

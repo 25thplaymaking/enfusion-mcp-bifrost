@@ -27,6 +27,7 @@ import { registerWbDiagnose } from "./tools/wb-diagnose.js";
 import { registerWbReload } from "./tools/wb-reload.js";
 import { registerWbCompileStatus } from "./tools/wb-compile-status.js";
 import { registerWbEditorTools } from "./tools/wb-editor.js";
+import { registerWbAnimPreview } from "./tools/wb-anim-preview.js";
 import { editorActionTools } from "./tools/wb-editor-actions.js";
 import { editorModuleTools } from "./tools/wb-editor-module.js";
 import { scriptCompileTools } from "./tools/wb-script-compile.js";
@@ -101,6 +102,7 @@ export function registerTools(server: McpServer, config: Config): void {
   registerWbReload(server, config, wbClient);
   registerWbCompileStatus(server, config);
   registerWbEditorTools(server, wbClient);
+  registerWbAnimPreview(server, config, wbClient);
   // Every covered wb_* tool — one greppable list, one envelope.
   const workbenchTools = [
     ...entityTools,

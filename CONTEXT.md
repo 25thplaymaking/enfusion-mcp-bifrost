@@ -8,8 +8,8 @@ use its terms verbatim in issues, ADRs, and code.
 
 A stdio MCP server that lets an LLM build Arma Reforger mods: research the
 Enfusion API, generate mod files, scaffold projects, and drive the Arma
-Workbench editor live. ~22k LOC of TypeScript, **63 MCP tools** across 54 tool
-files: **37 live-bridge tools and 26 offline tools that need no Workbench
+Workbench editor live. ~22k LOC of TypeScript, **65 MCP tools** across 55 tool
+files: **39 live-bridge tools and 26 offline tools that need no Workbench
 running**.
 
 The offline/live split is the fact to know first. If a task does not need the
@@ -21,7 +21,7 @@ needs a running editor.
 ## Architecture (8 subsystems)
 
 1. **Server core** — `src/index.ts`, `src/server.ts`, `src/config.ts`.
-   Boots the `McpServer` over stdio and registers all 63 tools, the prompts, and
+   Boots the `McpServer` over stdio and registers all 65 tools, the prompts, and
    the resources. Config is layered: built-in defaults → JSON config file → env
    vars (`ENFUSION_WORKBENCH_HOST`, `ENFUSION_EXTRACTED_PATH`,
    `ENFUSION_DEFAULT_MOD`). Path defaults assume a Windows Arma install.
@@ -40,11 +40,11 @@ needs a running editor.
    client to the running Arma Workbench's "NET API" (`127.0.0.1:5775`). More than
    a client: if Workbench isn't running it installs handler scripts into the mod,
    spawns the exe, waits for the NET API, then retries the call. The live-control
-   half of the system — **37 of the 63 tools go through the bridge**. They are
+   half of the system — **39 of the 65 tools go through the bridge**. They are
    the `wb_`-prefixed tools *minus* `wb_knowledge` and `wb_playbook`, which are
    `wb_`-prefixed and still fully offline; the remaining 26 need no editor.
 
-5. **Tools layer** — `src/tools/` (54 files, 63 tools). Four families:
+5. **Tools layer** — `src/tools/` (55 files, 65 tools). Four families:
    - **reference tools** — query the KB (api/component/wiki search); no engine
      needed.
    - **authoring tools** — generate mod files from templates/recipes
@@ -55,7 +55,7 @@ needs a running editor.
    - **Workbench tools** (`wb_*`) — drive the live editor through the bridge. The
      `wb_` prefix is NOT a reliable "needs Workbench" signal: `wb_knowledge` and
      `wb_playbook` are `wb_`-prefixed and fully offline, which is why the split
-     is 37 live / 26 offline rather than 39/24.
+     is 39 live / 26 offline rather than 41/24.
 
 6. **Templates & recipes** — `src/templates/` + `data/recipes` + `src/patterns`.
    Codegen for prefabs, configs, scenarios, scripts, layouts, gproj. The **recipe

@@ -83,7 +83,7 @@ describe("agent tool index is current", () => {
     expect(md).not.toContain("NaN");
     expect(md).not.toContain("undefined");
     expect(md).toContain("# Agent tool index");
-    expect(md).toContain("63 tools: 26 offline, 37 live");
+    expect(md).toContain("65 tools: 26 offline, 39 live");
     // Every table row must have a consistent column count.
     const rows = md.split("\n").filter((l) => l.startsWith("| `"));
     expect(rows.length).toBeGreaterThan(60);
@@ -108,7 +108,7 @@ describe("agent tool index is current", () => {
     expect(idx.offline + idx.live).toBe(idx.total);
   });
 
-  it("counts 37 live and 26 offline", () => {
+  it("counts 39 live and 26 offline", () => {
     // Asserted literally: adding or removing a tool should make the docs and
     // this number change together, in the same commit.
     const idx = JSON.parse(readFileSync(join(REPO, "dist", "tools.json"), "utf-8")) as {
@@ -116,9 +116,9 @@ describe("agent tool index is current", () => {
       offline: number;
       live: number;
     };
-    expect(idx.total).toBe(63);
+    expect(idx.total).toBe(65);
     expect(idx.offline).toBe(26);
-    expect(idx.live).toBe(37);
+    expect(idx.live).toBe(39);
   });
 });
 
@@ -181,9 +181,9 @@ describe("documentation integrity", () => {
 
   it("CONTEXT.md states the current tool count, not a stale one", () => {
     const ctx = readFileSync(join(REPO, "CONTEXT.md"), "utf-8");
-    // 63 = 24 offline + 39 wb_*. Asserted as a literal so a tool addition that
+    // 65 = 24 offline + 41 wb_*. Asserted as a literal so a tool addition that
     // forgets to update the architecture doc fails here.
-    expect(ctx).toContain("63 MCP tools");
+    expect(ctx).toContain("65 MCP tools");
     expect(ctx).not.toMatch(/\b50 MCP tools\b/);
     expect(ctx).not.toMatch(/\b41 files\b/);
     expect(ctx).not.toMatch(/31 of the 50/);
